@@ -56,8 +56,8 @@ public final class GithubPullRequestMergeCommand implements SlashCommand {
         final var url = requireNonNull(event.getOption(PR_URL_OPTION_NAME)).getAsString();
         final var pullRequestUrl = new PullRequestUrl(url);
 
-        if (!Objects.equals(pullRequestUrl.owner(), "cho-log")) {
-            event.reply("cholog의 PR만 머지할 수 있습니다.").queue();
+        if (!Objects.equals(pullRequestUrl.owner(), "next-step")) {
+            event.reply("next-step의 PR만 머지할 수 있습니다.").queue();
             final var warningMessage = "[경고] " + event.getUser().getEffectiveName() + "(" + event.getUser().getName() + ") 유저가 " + url + " PR을 머지하려 했습니다.";
             sendToMergeChannel(event.getJDA(), warningMessage);
             return;
