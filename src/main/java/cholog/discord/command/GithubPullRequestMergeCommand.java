@@ -45,7 +45,7 @@ public final class GithubPullRequestMergeCommand implements SlashCommand {
     @Override
     public List<OptionData> options() {
         return List.of(
-                new OptionData(OptionType.STRING, "pr url", "Github PR URL", true)
+                new OptionData(OptionType.STRING, "pr-url", "Github PR URL", true)
         );
     }
 
