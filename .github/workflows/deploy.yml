@@ -39,7 +39,7 @@ jobs:
       - name: Create deploy package
         run: |
           mkdir -p scripts
-          zip -r deployment-package.zip build/libs/cholog.jar appspec.yml scripts/
+          zip -r deployment-package.zip build/libs/discord-bot.jar appspec.yml scripts/
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
