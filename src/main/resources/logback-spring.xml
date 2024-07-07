@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [%X{requestId}] %msg%n</pattern>
+        </encoder>
+    </appender>
+    <appender name="ASYNC_STDOUT" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>500</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="STDOUT"/>
+    </appender>
+
+    <springProfile name="test, local">
+        <logger name="org.springframework.web" level="DEBUG"/>
+        <logger name="org.springframework.boot" level="DEBUG"/>
+        <logger name="org.hibernate" level="DEBUG"/>
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+        <logger name="com.zaxxer.hikari" level="DEBUG"/>
+        <logger name="cholog" level="TRACE"/>
+
+        <root level="DEBUG">
+            <appender-ref ref="ASYNC_STDOUT"/>
+        </root>
+    </springProfile>
+    <springProfile name="dev">
+        <logger name="org.springframework.web" level="DEBUG"/>
+        <logger name="org.springframework.boot" level="INFO"/>
+        <logger name="org.springframework.orm" level="INFO"/>
+        <logger name="org.springframework.jdbc" level="INFO"/>
+        <logger name="org.springframework.security" level="INFO"/>
+        <logger name="org.springframework.session" level="INFO"/>
+        <logger name="org.apache.http.impl.conn" level="INFO"/>
+        <logger name="org.hibernate" level="DEBUG"/>
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+        <logger name="com.zaxxer.hikari" level="DEBUG"/>
+        <logger name="cholog" level="TRACE"/>
+
+        <root level="INFO">
+            <appender-ref ref="ASYNC_STDOUT"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="ASYNC_STDOUT"/>
+        </root>
+    </springProfile>
+
+    <root level="INFO">
+        <appender-ref ref="ASYNC_STDOUT"/>
+    </root>
+</configuration>

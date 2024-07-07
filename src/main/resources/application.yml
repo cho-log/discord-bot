@@ -1,0 +1,15 @@
+spring:
+  application.name: discord-bot
+  profiles:
+    default: local
+
+cholog:
+  github:
+    token:
+    api-version: 2022-11-28
+  jda:
+    token:
+    guild-id:
+    commands:
+      pr-merge:
+        channel-id:
