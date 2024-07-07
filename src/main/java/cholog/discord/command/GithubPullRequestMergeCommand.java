@@ -19,6 +19,8 @@ import static java.util.Objects.requireNonNull;
 @Component
 public final class GithubPullRequestMergeCommand implements SlashCommand {
 
+    private static final String PR_URL_OPTION_NAME = "pr-url";
+
     private final CommandsProperties properties;
 
     private final GithubApi githubApi;
@@ -45,13 +47,13 @@ public final class GithubPullRequestMergeCommand implements SlashCommand {
     @Override
     public List<OptionData> options() {
         return List.of(
-                new OptionData(OptionType.STRING, "pr-url", "Github PR URL", true)
+                new OptionData(OptionType.STRING, PR_URL_OPTION_NAME, "Github PR URL", true)
         );
     }
 
     @Override
     public void onEvent(final SlashCommandInteractionEvent event) {
-        final var url = requireNonNull(event.getOption("value")).getAsString();
+        final var url = requireNonNull(event.getOption(PR_URL_OPTION_NAME)).getAsString();
         final var pullRequestUrl = new PullRequestUrl(url);
 
         if (!Objects.equals(pullRequestUrl.owner(), "cho-log")) {
