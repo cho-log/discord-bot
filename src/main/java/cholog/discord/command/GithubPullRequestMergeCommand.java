@@ -9,6 +9,8 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -18,6 +20,8 @@ import static java.util.Objects.requireNonNull;
 
 @Component
 public final class GithubPullRequestMergeCommand implements SlashCommand {
+
+    private static final Logger log = LoggerFactory.getLogger(GithubPullRequestMergeCommand.class);
 
     private static final String PR_URL_OPTION_NAME = "pr-url";
 
@@ -53,12 +57,19 @@ public final class GithubPullRequestMergeCommand implements SlashCommand {
 
     @Override
     public void onEvent(final SlashCommandInteractionEvent event) {
-        final var url = requireNonNull(event.getOption(PR_URL_OPTION_NAME)).getAsString();
+        final var userInfo = event.getUser().getEffectiveName() + "(" + event.getUser().getName() + ")";
+        final var url = requireNonNull(event.getOption(PR_URL_OPTION_NAME)).getAsString().trim();
         final var pullRequestUrl = new PullRequestUrl(url);
 
-        if (!Objects.equals(pullRequestUrl.owner(), "next-step")) {
-            event.reply("next-step의 PR만 머지할 수 있습니다.").queue();
-            final var warningMessage = "[경고] " + event.getUser().getEffectiveName() + "(" + event.getUser().getName() + ") 유저가 " + url + " PR을 머지하려 했습니다.";
+        if (properties.isDisallowOrganization(pullRequestUrl.owner())) {
+            event.reply(pullRequestUrl.owner() + "는 허용하지 않는 조직입니다.").queue();
+            final var warningMessage = "[경고] " + userInfo + " 유저가 " + url + " PR을 머지하려 했습니다.";
+            sendToMergeChannel(event.getJDA(), warningMessage);
+            return;
+        }
+        if (properties.isDisallowRepository(pullRequestUrl.repository())) {
+            event.reply(pullRequestUrl.repository() + "는 허용하지 않는 저장소입니다.").queue();
+            final var warningMessage = "[경고] " + userInfo + " 유저가 " + url + " PR을 머지하려 했습니다.";
             sendToMergeChannel(event.getJDA(), warningMessage);
             return;
         }
@@ -74,8 +85,8 @@ public final class GithubPullRequestMergeCommand implements SlashCommand {
         }
 
         final var targetBranch = pullRequest.base().ref();
-        if (targetBranch.contains("main") || targetBranch.contains("master")) {
-            event.reply("main 또는 master 브랜치에는 머지할 수 없습니다.").queue();
+        if (properties.isDisallowBranch(targetBranch)) {
+            event.reply(targetBranch + "브랜치에는 머지할 수 없습니다.").queue();
             return;
         }
 
@@ -93,10 +104,11 @@ public final class GithubPullRequestMergeCommand implements SlashCommand {
         );
         if (mergeResult.merged()) {
             event.reply("PR 머지 완료!").queue();
-            final var successMessage = event.getUser().getEffectiveName() + "(" + event.getUser().getName() + ") 유저가 " + url + " PR을 머지했습니다.";
+            final var successMessage = userInfo + " 유저가 " + url + " PR을 머지했습니다.";
             sendToMergeChannel(event.getJDA(), successMessage);
         } else {
             event.reply("[실패] " + mergeResult.message()).queue();
+            log.warn("fail to merge [user={}, url={}, message={}]", userInfo, url, mergeResult.message());
         }
     }
 
