@@ -38,6 +38,8 @@ public final class GithubPullRequestMergeSubscription implements MessageSubscrip
     @Override
     public void onEvent(final MessageReceivedEvent event) {
         final var message = event.getMessage();
+        message.editMessageEmbeds().queue();
+
         final var urls = Arrays.stream(message.getContentRaw().split("\\s+"))
                 .map(String::trim)
                 .filter(it -> it.startsWith("http"))
