@@ -44,6 +44,10 @@ public final class GithubPullRequestMergeSubscription implements MessageSubscrip
                 .map(String::trim)
                 .filter(it -> it.startsWith("http"))
                 .toList();
+        if (urls.isEmpty()) {
+            log.debug("No URLs found in message [message={}]", message);
+            return;
+        }
 
         final var fails = new HashMap<String, String>();
         for (final String url : urls) {
