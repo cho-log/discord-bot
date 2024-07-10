@@ -4,6 +4,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @FeignClient(
         name = "github",
@@ -26,6 +27,6 @@ public interface GithubApi {
             @PathVariable("owner") String owner,
             @PathVariable("repo") String repository,
             @PathVariable("pull_number") int pullNumber,
-            PullRequestMergeRequest mergeRequest
+            @RequestBody PullRequestMergeRequest mergeRequest
     );
 }

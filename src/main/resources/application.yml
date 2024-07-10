@@ -13,3 +13,15 @@ cholog:
     commands:
       pr-merge:
         channel-id:
+        allow-organizations:
+          - next-step
+        allow-repositories:
+          - java-ladder-func-playground
+          - java-calculator-unit-playground
+          - java-racingcar-simple-playground
+          - java-lotto-clean-playground
+          - spring-basic-roomescape-playground
+          - spring-roomescape-playground
+        disallow-branches:
+          - main
+          - master
