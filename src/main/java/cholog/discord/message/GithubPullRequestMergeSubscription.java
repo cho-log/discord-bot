@@ -69,7 +69,7 @@ public final class GithubPullRequestMergeSubscription implements MessageSubscrip
             final var targetBranch = pullRequest.base().ref();
             if (properties.isDisallowBranch(targetBranch)) {
                 fails.put(url, targetBranch + "브랜치에는 머지할 수 없습니다.");
-                return;
+                continue;
             }
 
             final var mergeRequest = new PullRequestMergeRequest(
@@ -89,7 +89,7 @@ public final class GithubPullRequestMergeSubscription implements MessageSubscrip
             }
         }
 
-        final var doneEmoji = Objects.requireNonNull(message.getJDA().getEmojiById(":done:"));
+        final var doneEmoji = Objects.requireNonNull(message.getJDA().getEmojiById("1189497983142727770"));
         message.addReaction(doneEmoji).queue();
         if (!fails.isEmpty()) {
             final var failMessages = fails.entrySet().stream()
