@@ -40,7 +40,7 @@ public final class GithubPullRequestMergeSubscription implements MessageSubscrip
         final var message = event.getMessage();
         final var urls = Arrays.stream(message.getContentRaw().split("\\s+"))
                 .map(String::trim)
-                .filter(it -> it.startsWith("http:"))
+                .filter(it -> it.startsWith("http"))
                 .toList();
 
         final var fails = new HashMap<String, String>();
