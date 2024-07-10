@@ -1,11 +1,11 @@
-package cholog.discord.command;
+package cholog.discord.message;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.List;
 
-@ConfigurationProperties(prefix = "cholog.jda.commands")
-public record CommandsProperties(
+@ConfigurationProperties(prefix = "cholog.jda.subscriptions")
+public record MessagesProperties(
         PrMergeProperties prMerge
 ) {
 

@@ -10,7 +10,7 @@ cholog:
   jda:
     token:
     guild-id:
-    commands:
+    subscriptions:
       pr-merge:
         channel-id:
         allow-organizations:

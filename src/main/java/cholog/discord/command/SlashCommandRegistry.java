@@ -1,4 +1,4 @@
-package cholog.discord;
+package cholog.discord.command;
 
 import jakarta.annotation.PostConstruct;
 import net.dv8tion.jda.api.entities.Guild;

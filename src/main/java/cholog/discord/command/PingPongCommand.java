@@ -1,6 +1,5 @@
 package cholog.discord.command;
 
-import cholog.discord.SlashCommand;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import org.springframework.stereotype.Component;
 

@@ -1,10 +1,10 @@
-package cholog.discord.command;
+package cholog.discord.message;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
-@EnableConfigurationProperties(CommandsProperties.class)
+@EnableConfigurationProperties(MessagesProperties.class)
 @Configuration
-public class CommandsConfiguration {
+public class MessagesConfiguration {
 
 }
