@@ -18,7 +18,7 @@ public record PullRequestMergeRequest(
             final String sha,
             final MergeMethod mergeMethod
     ) {
-        this(commitTitle, commitMessage, sha, mergeMethod.name());
+        this(commitTitle, commitMessage, sha, mergeMethod.name().toLowerCase());
     }
 
     public enum MergeMethod {
