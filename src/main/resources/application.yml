@@ -15,6 +15,7 @@ cholog:
         channel-id:
         allow-organizations:
           - next-step
+          - cho-log
         allow-repositories:
           - java-ladder-func-playground
           - java-calculator-unit-playground
@@ -22,6 +23,7 @@ cholog:
           - java-lotto-clean-playground
           - spring-basic-roomescape-playground
           - spring-roomescape-playground
+          - self-paced-react
         disallow-branches:
           - main
           - master
