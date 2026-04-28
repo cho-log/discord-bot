@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-cho-log 조직의 Discord 봇. 우아한테크코스(우테코) 교육 운영을 지원한다.
+cho-log 조직의 Discord 봇. 초록 교육 운영을 지원한다.
 GitHub PR 머지 알림과 슬래시 커맨드를 제공한다.
 
 ## Tech Stack
