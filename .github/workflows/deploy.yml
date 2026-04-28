@@ -3,6 +3,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '.github/workflows/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'scripts/**'
+      - 'src/**'
   pull_request:
     branches:
       - main
@@ -10,7 +16,7 @@ on:
       - '.github/workflows/**'
       - 'build.gradle'
       - 'settings.gradle'
-      - 'scrpts/**'
+      - 'scripts/**'
       - 'src/**'
 
 jobs:
