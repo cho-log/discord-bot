@@ -1,0 +1,48 @@
+name: 기능 요청
+description: 새로운 기능을 제안합니다.
+title: "[Feature] "
+labels:
+  - feature
+body:
+  - type: dropdown
+    id: author
+    attributes:
+      label: 작성자
+      description: 이 이슈를 작성하는 주체를 선택합니다.
+      options:
+        - Human
+        - AI
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 요약
+      description: 어떤 기능인가요? 한두 줄로 적어주세요.
+      placeholder: "예) PR 머지 시 Discord 채널에 알림을 전송한다."
+    validations:
+      required: true
+
+  - type: textarea
+    id: background
+    attributes:
+      label: 배경
+      description: 왜 필요한가요? 어떤 문제를 해결하나요? (선택)
+
+  - type: checkboxes
+    id: acceptance
+    attributes:
+      label: 완료 조건
+      description: 이 기능이 "끝났다"고 말할 수 있는 조건. 필요한 만큼 자유롭게 추가하세요. (선택)
+      options:
+        - label: 기능이 동작한다
+        - label: 테스트가 추가됐다
+        - label: 문서가 갱신됐다
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 추가 컨텍스트
+      description: 참고 링크, 스크린샷, 관련 이슈 등. (선택)
