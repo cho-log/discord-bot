@@ -1,0 +1,61 @@
+name: 버그 리포트
+description: 동작이 예상과 다른 문제를 보고합니다.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: dropdown
+    id: author
+    attributes:
+      label: 작성자
+      description: 이 이슈를 작성하는 주체를 선택합니다.
+      options:
+        - Human
+        - AI
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 요약
+      description: 무슨 문제인가요? 한두 줄로 적어주세요.
+      placeholder: "예) /ping 커맨드가 응답하지 않는다."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현 절차
+      description: 어떻게 하면 문제를 재현할 수 있나요? (선택)
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+      description: 원래라면 어떻게 동작해야 하나요? (선택)
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 동작
+      description: 실제로는 어떻게 동작하나요? 에러 메시지/로그가 있다면 함께 적어주세요. (선택)
+
+  - type: input
+    id: environment
+    attributes:
+      label: 환경
+      description: 봇 버전, JDA 버전, OS 등. (선택)
+      placeholder: "예) discord-bot v0.1.0, JDA 5.0.0-beta.24, macOS 14"
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 추가 컨텍스트
+      description: 참고 링크, 스크린샷, 관련 이슈 등. (선택)
