@@ -23,7 +23,7 @@ jobs:
         env:
           APPLICATION_YML: ${{ secrets.APPLICATION_YML }}
         run: |
-          echo "$APPLICATION_YML" | envsubst > src/main/resources/application.yml
+          printf '%s\n' "$APPLICATION_YML" > src/main/resources/application.yml
 
       - name: Build with Gradle
         run: ./gradlew bootJar
