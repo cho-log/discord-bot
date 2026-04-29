@@ -8,7 +8,10 @@ body:
     id: author
     attributes:
       label: 작성자
-      description: 이 이슈를 작성하는 주체를 선택합니다.
+      description: |
+        이 이슈를 작성하는 주체를 선택합니다.
+        사람은 손쉽게 적고, AI(Claude 등)는 같은 폼을 따라 더 풍부하게 채울 수 있도록 분리합니다.
+        'AI' 선택 시 추후 자동 라벨링(claude-action)이 적용될 예정입니다.
       options:
         - Human
         - AI
