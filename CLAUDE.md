@@ -35,7 +35,7 @@ src/main/java/cholog/
 │   ├── command/
 │   │   ├── SlashCommand.java           # 슬래시 커맨드 인터페이스
 │   │   ├── SlashCommandRegistry.java   # 커맨드 등록
-│   │   ├── SlashCommandListenerMapper.java
+│   │   ├── SlashCommandListenerMapper.java   # 슬래시 커맨드 리스너 매핑
 │   │   └── PingPongCommand.java        # /ping 커맨드
 │   └── message/
 │       ├── MessageSubscription.java    # 메시지 구독 인터페이스
@@ -88,7 +88,7 @@ cholog:
 - 패키지: 기능 도메인 기준 (`discord.command`, `discord.message`, `github`)
 - 클래스: 역할을 명확히 드러내는 이름 (`GithubPullRequestMergeSubscription`)
 - 설정: `*Properties` (값 바인딩) + `*Configuration` (빈 구성) 분리
-- 접근 제한: 패키지 내부 클래스는 `package-private`, 인터페이스만 `public`
+- 접근 제한: 외부 노출 대상(`Application` 엔트리포인트, `*Properties`/`*Configuration` Spring binding, 도메인 record, 확장 인터페이스)만 `public`, 그 외 구현체는 `package-private`
 - final 파라미터: 메서드 파라미터에 `final` 사용
 
 ## Development Pipeline
