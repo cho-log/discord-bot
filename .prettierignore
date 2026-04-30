@@ -1,0 +1,22 @@
+node_modules/
+dist/
+coverage/
+
+# Java/Gradle (마이그레이션 진행 중 보존)
+src/main/**
+build/
+gradle/
+gradlew
+gradlew.bat
+*.gradle
+
+# 문서 및 메타 파일 (소스 코드 외)
+CLAUDE.md
+.claude/
+.omc/
+.github/ISSUE_TEMPLATE/
+.github/PULL_REQUEST_TEMPLATE.md
+.github/actions/**
+
+# 설정 파일은 ESLint/TS 검사에서 다룸
+*.config.*
