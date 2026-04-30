@@ -1,0 +1,20 @@
+name: Create .env
+description: DOTENV secret을 checkout 루트의 .env로 복사 (checkout 후 사용)
+
+inputs:
+  dotenv:
+    description: DOTENV secret 내용
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        DOTENV: ${{ inputs.dotenv }}
+      run: |
+        if [ -z "$DOTENV" ]; then
+          echo "Error: DOTENV secret is empty"
+          exit 1
+        fi
+        printf '%s\n' "$DOTENV" > .env
