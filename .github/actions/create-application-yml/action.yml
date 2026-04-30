@@ -1,5 +1,5 @@
 name: Create application.yml
-description: APPLICATION_YML secret을 src/main/resources/application.yml로 복사
+description: APPLICATION_YML secret을 src/main/resources/application.yml로 복사 (checkout 후 사용)
 
 inputs:
   application-yml:
