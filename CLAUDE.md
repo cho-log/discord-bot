@@ -92,10 +92,50 @@ src/
 
 ## CI/CD
 
-- **CI** (`.github/workflows/ci.yml`): main push 및 PR — `npm ci → lint → typecheck → build → test`
+- **CI** (`.github/workflows/ci.yml`): main push 및 PR — `npm ci → format:check → lint → typecheck → build → test`
 - **Deploy** (`.github/workflows/deploy.yml`): `v[1-9]*` 태그 push만 트리거 (v0.x placeholder 보호 게이트)
-  - `secrets.DOTENV` 빈 값이면 첫 단계에서 `exit 1`
+  - `secrets.DOTENV` 빈 값/공백만이면 첫 단계에서 `exit 1`
+  - `aws deploy wait deployment-successful`로 배포 결과를 workflow에 동기화
   - 첫 v1.0.0 배포는 #5~#8 마이그레이션 완료 후
+
+## Operations
+
+마이그레이션 #3 머지 후 운영자가 수행할 1회성 작업:
+
+### 1. GitHub Secret 등록
+
+저장소 Settings → Secrets and variables → Actions에서 `DOTENV` secret 추가.
+값은 `.env.example` 형식의 multiline string. `APPLICATION_YML` secret은 #5~#8 완료 후 제거.
+
+### 2. EC2 환경 갱신 (Node 22)
+
+기존 EC2는 Node 20 + JDK 21. 첫 v1.x.x 배포 전 운영자가 직접 실행:
+
+```bash
+# Node 22 업그레이드 (기존 Node 20 위에 덮어씀)
+bash /home/ubuntu/.../scripts/ubuntu/install-pm2.sh
+
+# (선택) JDK 정리는 마이그레이션 완전 종료 후
+# sudo apt-get remove --purge openjdk-21-* 등은 첫 v1.x.x 안정화 후 진행
+```
+
+### 3. 첫 v1.x.x 배포 시 운영 경로 정리
+
+배포 destination이 `/home/ubuntu/discord-bot.jar`(파일) → `/home/ubuntu/discord-bot/`(디렉토리)로 변경됨:
+
+- 첫 v1.x.x 배포 후 EC2의 잔존 파일 정리:
+  ```bash
+  sudo rm -f /home/ubuntu/discord-bot.jar
+  ```
+- pm2가 새 Node 프로세스로 자동 교체 (`pm2 delete discord-bot && pm2 start dist/index.js`)
+- Discord Gateway 재연결에 약 3-6초 다운타임 발생
+
+### 4. 배포 보안
+
+- S3 업로드 시 `--sse AES256` (server-side encryption)
+- `.env`는 zip 패키지에 포함되지만 GitHub Actions runner에서는 즉시 삭제
+- EC2 배치 후 `chmod 600 /home/ubuntu/discord-bot/.env` (deploy.sh가 자동 처리)
+- 추후 강화 옵션: AWS Secrets Manager 또는 SSM Parameter Store로 전환 (별 이슈)
 
 ## Milestones
 

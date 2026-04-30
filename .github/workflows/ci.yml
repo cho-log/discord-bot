@@ -10,6 +10,9 @@ on:
       - 'package-lock.json'
       - 'tsconfig.json'
       - 'eslint.config.js'
+      - 'vitest.config.ts'
+      - '.prettierrc.json'
+      - '.prettierignore'
       - 'src/**'
   pull_request:
     branches:
@@ -20,6 +23,9 @@ on:
       - 'package-lock.json'
       - 'tsconfig.json'
       - 'eslint.config.js'
+      - 'vitest.config.ts'
+      - '.prettierrc.json'
+      - '.prettierignore'
       - 'src/**'
 
 jobs:
@@ -38,6 +44,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Format check
+        run: npm run format:check
 
       - name: Lint
         run: npm run lint

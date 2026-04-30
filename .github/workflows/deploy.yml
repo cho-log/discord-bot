@@ -1,5 +1,8 @@
 name: Deploy
 
+# 배포 트리거: v1+ 태그만 (v0.x.x는 placeholder 보호 게이트)
+# - v[1-9]*: 첫 자리가 1~9인 태그 매치 (v1.0.0, v10.0.0)
+# - v0.x.x: #5~#8 마이그레이션 완료 전까지 deploy 안 됨
 on:
   push:
     tags:
@@ -24,17 +27,25 @@ jobs:
         with:
           dotenv: ${{ secrets.DOTENV }}
 
+      # 빌드는 devDeps(typescript) 필요 → 전체 설치
       - name: Install dependencies
         run: npm ci
 
       - name: Build
         run: npm run build
 
+      # production deploy 패키지를 위해 devDeps 제거
+      # 현재 dependencies={}라 node_modules가 비지만, #5에서 discord.js 등 추가 시 정상 채워짐
       - name: Prune devDependencies
         run: npm prune --omit=dev
 
       - name: Create deploy package
         run: zip -r deployment-package.zip dist/ node_modules/ package.json package-lock.json appspec.yml scripts/ .env
+
+      # 보안: runner의 .env 즉시 삭제 (zip에는 포함됨)
+      - name: Cleanup .env from runner
+        if: always()
+        run: rm -f .env
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -43,19 +54,33 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Upload to S3
+      - name: Upload to S3 (server-side encryption)
         env:
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
         run: |
-          aws s3 cp deployment-package.zip "s3://${S3_BUCKET_NAME}/deployment-package.zip"
+          aws s3 cp deployment-package.zip "s3://${S3_BUCKET_NAME}/deployment-package.zip" \
+            --sse AES256
 
-      - name: Deploy to CodeDeploy
+      - name: Trigger CodeDeploy
+        id: deploy
         env:
           APPLICATION_NAME: ${{ secrets.APPLICATION_NAME }}
           DEPLOYMENT_GROUP_NAME: ${{ secrets.DEPLOYMENT_GROUP_NAME }}
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
         run: |
-          aws deploy create-deployment \
+          DEPLOYMENT_ID=$(aws deploy create-deployment \
             --application-name "${APPLICATION_NAME}" \
             --deployment-group-name "${DEPLOYMENT_GROUP_NAME}" \
-            --s3-location "bucket=${S3_BUCKET_NAME},key=deployment-package.zip,bundleType=zip"
+            --s3-location "bucket=${S3_BUCKET_NAME},key=deployment-package.zip,bundleType=zip" \
+            --query 'deploymentId' \
+            --output text)
+          echo "deployment_id=${DEPLOYMENT_ID}" >> "$GITHUB_OUTPUT"
+          echo "Started CodeDeploy deployment: ${DEPLOYMENT_ID}"
+
+      # 배포 결과를 workflow에 반영 (CodeDeploy 비동기 → 동기화)
+      - name: Wait for CodeDeploy completion
+        env:
+          DEPLOYMENT_ID: ${{ steps.deploy.outputs.deployment_id }}
+        run: |
+          aws deploy wait deployment-successful --deployment-id "${DEPLOYMENT_ID}"
+          echo "CodeDeploy deployment ${DEPLOYMENT_ID} succeeded"
