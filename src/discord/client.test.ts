@@ -6,18 +6,18 @@ import { type LoginableClient, loginAndAwaitReady } from './client.js';
 function createEmitterClient(loginImpl: () => Promise<string>): {
   client: LoginableClient;
   emitter: EventEmitter;
-  removeAllListeners: ReturnType<typeof vi.fn>;
+  off: ReturnType<typeof vi.fn>;
 } {
   const emitter = new EventEmitter();
-  const removeAllListeners = vi.fn((event: string) => {
-    emitter.removeAllListeners(event);
+  const off = vi.fn((event: string, listener: (...args: unknown[]) => void) => {
+    emitter.off(event, listener);
   });
   const client: LoginableClient = {
     once: emitter.once.bind(emitter) as LoginableClient['once'],
     login: vi.fn(loginImpl) as unknown as LoginableClient['login'],
-    removeAllListeners: removeAllListeners as unknown as LoginableClient['removeAllListeners'],
+    off: off as unknown as LoginableClient['off'],
   };
-  return { client, emitter, removeAllListeners };
+  return { client, emitter, off };
 }
 
 describe('loginAndAwaitReady', () => {
@@ -32,12 +32,23 @@ describe('loginAndAwaitReady', () => {
     await expect(pending).resolves.toBeUndefined();
   });
 
-  test('rejects when login fails without registering ready listener', async () => {
+  test('rejects when login fails and removes the ready listener', async () => {
     const failure = new Error('DISALLOWED_INTENTS');
-    const { client, emitter } = createEmitterClient(() => Promise.reject(failure));
+    const { client, emitter, off } = createEmitterClient(() => Promise.reject(failure));
 
     await expect(loginAndAwaitReady(client, 'bad')).rejects.toBe(failure);
+    expect(off).toHaveBeenCalledWith(Events.ClientReady, expect.any(Function));
     expect(emitter.listenerCount(Events.ClientReady)).toBe(0);
+  });
+
+  test('does not affect listeners registered outside loginAndAwaitReady', async () => {
+    const failure = new Error('DISALLOWED_INTENTS');
+    const { client, emitter } = createEmitterClient(() => Promise.reject(failure));
+    const externalHandler = vi.fn();
+    emitter.on(Events.ClientReady, externalHandler);
+
+    await expect(loginAndAwaitReady(client, 'bad')).rejects.toBe(failure);
+    expect(emitter.listenerCount(Events.ClientReady)).toBe(1);
   });
 
   describe('with fake timers', () => {
@@ -50,7 +61,7 @@ describe('loginAndAwaitReady', () => {
     });
 
     test('rejects when clientReady is not emitted before timeout', async () => {
-      const { client, emitter, removeAllListeners } = createEmitterClient(async () => 'token');
+      const { client, emitter, off } = createEmitterClient(async () => 'token');
 
       // expect.rejects를 먼저 호출해 reject handler를 미리 부착한다.
       // 그래야 fake timer가 reject를 발화시킬 때 unhandled rejection이 뜨지 않는다.
@@ -61,7 +72,7 @@ describe('loginAndAwaitReady', () => {
       await vi.advanceTimersByTimeAsync(30_000);
       await assertion;
 
-      expect(removeAllListeners).toHaveBeenCalledWith(Events.ClientReady);
+      expect(off).toHaveBeenCalledWith(Events.ClientReady, expect.any(Function));
       expect(emitter.listenerCount(Events.ClientReady)).toBe(0);
     });
   });
