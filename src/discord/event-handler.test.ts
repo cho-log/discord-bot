@@ -55,4 +55,56 @@ describe('registerEventHandlers', () => {
     expect(client.on).toHaveBeenNthCalledWith(1, 'messageCreate', messageHandler.handle);
     expect(client.on).toHaveBeenNthCalledWith(2, 'interactionCreate', interactionHandler.handle);
   });
+
+  test('skips duplicate handler instance on repeated calls to same client', () => {
+    const client = createMockClient();
+    const handler: AnyEventHandler = {
+      event: 'messageCreate',
+      handle: vi.fn(),
+    };
+    registerEventHandlers(client, [handler]);
+    registerEventHandlers(client, [handler]);
+    expect(client.on).toHaveBeenCalledTimes(1);
+    expect(client.on).toHaveBeenCalledWith('messageCreate', handler.handle);
+  });
+
+  test('skips duplicates within a single call', () => {
+    const client = createMockClient();
+    const handler: AnyEventHandler = {
+      event: 'messageCreate',
+      handle: vi.fn(),
+    };
+    registerEventHandlers(client, [handler, handler]);
+    expect(client.on).toHaveBeenCalledTimes(1);
+  });
+
+  test('still registers a different handler instance for the same event', () => {
+    const client = createMockClient();
+    const first: AnyEventHandler = {
+      event: 'messageCreate',
+      handle: vi.fn(),
+    };
+    const second: AnyEventHandler = {
+      event: 'messageCreate',
+      handle: vi.fn(),
+    };
+    registerEventHandlers(client, [first]);
+    registerEventHandlers(client, [second]);
+    expect(client.on).toHaveBeenCalledTimes(2);
+    expect(client.on).toHaveBeenNthCalledWith(1, 'messageCreate', first.handle);
+    expect(client.on).toHaveBeenNthCalledWith(2, 'messageCreate', second.handle);
+  });
+
+  test('tracks dedup state per client instance', () => {
+    const clientA = createMockClient();
+    const clientB = createMockClient();
+    const handler: AnyEventHandler = {
+      event: 'messageCreate',
+      handle: vi.fn(),
+    };
+    registerEventHandlers(clientA, [handler]);
+    registerEventHandlers(clientB, [handler]);
+    expect(clientA.on).toHaveBeenCalledTimes(1);
+    expect(clientB.on).toHaveBeenCalledTimes(1);
+  });
 });
