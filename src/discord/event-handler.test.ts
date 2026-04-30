@@ -1,9 +1,6 @@
 import type { Client } from 'discord.js';
 import { describe, expect, test, vi } from 'vitest';
-import {
-  type AnyEventHandler,
-  registerEventHandlers,
-} from './event-handler.js';
+import { type AnyEventHandler, registerEventHandlers } from './event-handler.js';
 
 function createMockClient() {
   return {
@@ -39,10 +36,7 @@ describe('registerEventHandlers', () => {
       handle: vi.fn(),
     };
     registerEventHandlers(client, [handler]);
-    expect(client.once).toHaveBeenCalledWith(
-      'interactionCreate',
-      handler.handle,
-    );
+    expect(client.once).toHaveBeenCalledWith('interactionCreate', handler.handle);
     expect(client.on).not.toHaveBeenCalled();
   });
 
@@ -58,15 +52,7 @@ describe('registerEventHandlers', () => {
     };
     registerEventHandlers(client, [messageHandler, interactionHandler]);
     expect(client.on).toHaveBeenCalledTimes(2);
-    expect(client.on).toHaveBeenNthCalledWith(
-      1,
-      'messageCreate',
-      messageHandler.handle,
-    );
-    expect(client.on).toHaveBeenNthCalledWith(
-      2,
-      'interactionCreate',
-      interactionHandler.handle,
-    );
+    expect(client.on).toHaveBeenNthCalledWith(1, 'messageCreate', messageHandler.handle);
+    expect(client.on).toHaveBeenNthCalledWith(2, 'interactionCreate', interactionHandler.handle);
   });
 });

@@ -1,11 +1,15 @@
-/**
- * cho-log Discord Bot — placeholder entry point.
- *
- * 실제 봇 부트스트랩(discord.js 클라이언트 + 슬래시 커맨드 + GitHub PR 머지 구독)은
- * 후속 마이그레이션 이슈(#5~#8)에서 이 파일을 교체하며 도입된다.
- */
+import { loadConfig } from './config/index.js';
+import { createClient, loginAndAwaitReady } from './discord/client.js';
+import { registerEventHandlers } from './discord/event-handler.js';
+import { DISCORD_INTENTS } from './discord/intents.js';
 
-const startedAt = new Date().toISOString();
-
-console.log(`[cho-log discord bot] placeholder build (started ${startedAt})`);
-console.log('[cho-log discord bot] real bot logic will be added in issues #5~#8');
+(async (): Promise<void> => {
+  const config = loadConfig();
+  const client = createClient(DISCORD_INTENTS);
+  registerEventHandlers(client, []);
+  await loginAndAwaitReady(client, config.DISCORD_BOT_TOKEN);
+  console.log('[cho-log discord bot] running');
+})().catch((err: unknown) => {
+  console.error('[cho-log discord bot] bootstrap failed', err);
+  process.exit(1);
+});

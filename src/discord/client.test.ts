@@ -15,8 +15,7 @@ function createEmitterClient(loginImpl: () => Promise<string>): {
   const client: LoginableClient = {
     once: emitter.once.bind(emitter) as LoginableClient['once'],
     login: vi.fn(loginImpl) as unknown as LoginableClient['login'],
-    removeAllListeners:
-      removeAllListeners as unknown as LoginableClient['removeAllListeners'],
+    removeAllListeners: removeAllListeners as unknown as LoginableClient['removeAllListeners'],
   };
   return { client, emitter, removeAllListeners };
 }

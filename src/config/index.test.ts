@@ -19,7 +19,7 @@ test('returns typed config with defaults applied', () => {
 });
 
 test('rejects malformed snowflake guild id', () => {
-  expect(() =>
-    loadConfig({ ...validEnv, DISCORD_GUILD_ID: 'not-a-snowflake' }),
-  ).toThrow(/DISCORD_GUILD_ID/);
+  expect(() => loadConfig({ ...validEnv, DISCORD_GUILD_ID: 'not-a-snowflake' })).toThrow(
+    /DISCORD_GUILD_ID/,
+  );
 });
