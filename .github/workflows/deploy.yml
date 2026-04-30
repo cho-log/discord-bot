@@ -43,12 +43,18 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Upload to S3
+        env:
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
         run: |
-          aws s3 cp deployment-package.zip s3://${{ secrets.S3_BUCKET_NAME }}/deployment-package.zip
+          aws s3 cp deployment-package.zip "s3://${S3_BUCKET_NAME}/deployment-package.zip"
 
       - name: Deploy to CodeDeploy
+        env:
+          APPLICATION_NAME: ${{ secrets.APPLICATION_NAME }}
+          DEPLOYMENT_GROUP_NAME: ${{ secrets.DEPLOYMENT_GROUP_NAME }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
         run: |
           aws deploy create-deployment \
-            --application-name ${{ secrets.APPLICATION_NAME }} \
-            --deployment-group-name ${{ secrets.DEPLOYMENT_GROUP_NAME }} \
-            --s3-location bucket=${{ secrets.S3_BUCKET_NAME }},key=deployment-package.zip,bundleType=zip
+            --application-name "${APPLICATION_NAME}" \
+            --deployment-group-name "${DEPLOYMENT_GROUP_NAME}" \
+            --s3-location "bucket=${S3_BUCKET_NAME},key=deployment-package.zip,bundleType=zip"
