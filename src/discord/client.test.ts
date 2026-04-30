@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { Events } from 'discord.js';
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { type LoginableClient, loginAndAwaitReady } from './client.js';
 
 function createEmitterClient(loginImpl: () => Promise<string>): {
@@ -32,14 +32,37 @@ describe('loginAndAwaitReady', () => {
     await expect(pending).resolves.toBeUndefined();
   });
 
-  test('rejects when login fails and removes the listener', async () => {
+  test('rejects when login fails without registering ready listener', async () => {
     const failure = new Error('DISALLOWED_INTENTS');
-    const { client, emitter, removeAllListeners } = createEmitterClient(() =>
-      Promise.reject(failure),
-    );
+    const { client, emitter } = createEmitterClient(() => Promise.reject(failure));
 
     await expect(loginAndAwaitReady(client, 'bad')).rejects.toBe(failure);
-    expect(removeAllListeners).toHaveBeenCalledWith(Events.ClientReady);
     expect(emitter.listenerCount(Events.ClientReady)).toBe(0);
+  });
+
+  describe('with fake timers', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    test('rejects when clientReady is not emitted before timeout', async () => {
+      const { client, emitter, removeAllListeners } = createEmitterClient(async () => 'token');
+
+      // expect.rejects를 먼저 호출해 reject handler를 미리 부착한다.
+      // 그래야 fake timer가 reject를 발화시킬 때 unhandled rejection이 뜨지 않는다.
+      const assertion = expect(loginAndAwaitReady(client, 'token')).rejects.toThrow(
+        /clientReady not received/,
+      );
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      await assertion;
+
+      expect(removeAllListeners).toHaveBeenCalledWith(Events.ClientReady);
+      expect(emitter.listenerCount(Events.ClientReady)).toBe(0);
+    });
   });
 });
