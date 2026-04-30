@@ -1,0 +1,16 @@
+name: Create application.yml
+description: APPLICATION_YML secret을 src/main/resources/application.yml로 복사
+
+inputs:
+  application-yml:
+    description: APPLICATION_YML secret 내용
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        APPLICATION_YML: ${{ inputs.application-yml }}
+      run: |
+        printf '%s\n' "$APPLICATION_YML" > src/main/resources/application.yml

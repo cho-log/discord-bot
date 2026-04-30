@@ -20,12 +20,9 @@ jobs:
           java-version: '21'
 
       - name: Create application.yml
-        env:
-          APPLICATION_YML: ${{ secrets.APPLICATION_YML }}
-        run: |
-          # envsubst 제거 (#19): APPLICATION_YML 내 ${...} 토큰이 GitHub Actions
-          # 자동 주입 env(GITHUB_TOKEN, RUNNER_*)로 치환되는 것을 방지.
-          printf '%s\n' "$APPLICATION_YML" > src/main/resources/application.yml
+        uses: ./.github/actions/create-application-yml
+        with:
+          application-yml: ${{ secrets.APPLICATION_YML }}
 
       - name: Build with Gradle
         run: ./gradlew bootJar
