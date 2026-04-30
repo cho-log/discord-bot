@@ -6,7 +6,8 @@ cho-log 조직의 Discord 봇. 초록 교육 운영을 지원한다.
 GitHub PR 머지 알림과 슬래시 커맨드를 제공한다.
 
 > **마이그레이션 진행 중 (v1)**: Java/Spring Boot → TypeScript/Node.js. 
-> 본 파일은 새 스택 기준으로 갱신되었으며, 봇 기능 코드는 #5~#8에서 포팅 후 이식된다.
+> #5에서 봇 부트스트랩 골격(client + intents + event-handler + config)이 이식되었으며,
+> #6~#8에서 슬래시 커맨드와 GitHub PR 머지 알림이 추가된다.
 > 포팅 완료 시 `src/main/java/**`는 자연 제거된다.
 
 ## Tech Stack
@@ -15,7 +16,8 @@ GitHub PR 머지 알림과 슬래시 커맨드를 제공한다.
 |------|-----------|
 | Language | TypeScript 5.9 |
 | Runtime | Node.js 22+ (ESM, `module=Node16`) |
-| Discord | discord.js (예정, #5에서 도입) |
+| Discord | discord.js ^14.26 |
+| Validation | Zod ^4.4 (env config schema) |
 | Test | Vitest 4 |
 | Lint | ESLint 9 (flat config) + typescript-eslint 8 |
 | Format | Prettier 3 |
@@ -40,22 +42,28 @@ npm run format           # Prettier 적용
 
 ```
 src/
-└── index.ts             # 엔트리포인트 (placeholder)
-src/index.test.ts        # smoke test
+├── index.ts                       # 엔트리포인트 (async IIFE 부트스트랩)
+├── config/
+│   ├── schema.ts                  # Zod 환경변수 스키마
+│   ├── index.ts                   # loadConfig — process.env 검증·로드
+│   └── index.test.ts
+└── discord/
+    ├── intents.ts                 # Gateway Intents (JDA EnumSet 매핑)
+    ├── client.ts                  # createClient + loginAndAwaitReady
+    ├── event-handler.ts           # EventHandler<E> + 등록 함수
+    └── *.test.ts
 
-# 마이그레이션 진행 중에는 Java 소스가 보존됨 (#5~#8에서 자연 제거):
+# 마이그레이션 진행 중 Java 소스가 보존됨 (#6~#8 완료 시 제거 예정):
 # src/main/java/cholog/    — 기존 Spring Boot 봇 코드
 # src/main/resources/      — application.yml, logback-spring.xml
 ```
 
-신규 봇 기능은 후속 이슈에서 다음 구조로 추가 예정:
+후속 이슈에서 추가될 디렉토리:
 
 ```
 src/
-├── index.ts             # 엔트리포인트
-├── discord/             # discord.js 클라이언트, 커맨드, 이벤트
-├── github/              # GitHub API 클라이언트
-└── config/              # 환경변수 로딩, 설정 스키마
+├── discord/commands/    # 슬래시 커맨드 (#6)
+└── github/              # GitHub API 클라이언트 (#7~#8)
 ```
 
 ## Configuration
