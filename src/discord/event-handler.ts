@@ -19,7 +19,7 @@ export type AnyEventHandler = {
 // WeakMap이라 client가 GC되면 자동 정리되어 메모리 누수가 없다.
 // 외부에서 client.on/once로 직접 등록한 listener는 추적하지 않으므로
 // 영향을 받지 않는다 (#30 옵션 b).
-const registeredHandlers = new WeakMap<object, Set<AnyEventHandler>>();
+const registeredHandlers = new WeakMap<object, WeakSet<AnyEventHandler>>();
 
 export function registerEventHandlers(
   client: Pick<Client, 'on' | 'once'>,
@@ -27,7 +27,7 @@ export function registerEventHandlers(
 ): void {
   let known = registeredHandlers.get(client);
   if (known === undefined) {
-    known = new Set();
+    known = new WeakSet();
     registeredHandlers.set(client, known);
   }
 
