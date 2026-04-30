@@ -35,16 +35,16 @@ npm test
 
 ## Stack
 
-| 항목 | 도구 |
-|------|------|
-| Language | TypeScript 5.9 (ESM, `module=Node16`) |
-| Runtime | Node.js 22+ |
-| Discord | discord.js (예정, #5에서 도입) |
-| Test | Vitest 4 |
-| Lint | ESLint 9 (flat) + typescript-eslint 8 |
-| Format | Prettier 3 |
-| Build/Dev | npm + tsx |
-| Deploy | GitHub Actions → S3 → AWS CodeDeploy → PM2 |
+| 항목      | 도구                                       |
+| --------- | ------------------------------------------ |
+| Language  | TypeScript 5.9 (ESM, `module=Node16`)      |
+| Runtime   | Node.js 22+                                |
+| Discord   | discord.js (예정, #5에서 도입)             |
+| Test      | Vitest 4                                   |
+| Lint      | ESLint 9 (flat) + typescript-eslint 8      |
+| Format    | Prettier 3                                 |
+| Build/Dev | npm + tsx                                  |
+| Deploy    | GitHub Actions → S3 → AWS CodeDeploy → PM2 |
 
 자세한 내용은 [`CLAUDE.md`](./CLAUDE.md) 참고.
 
