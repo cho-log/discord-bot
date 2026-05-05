@@ -14,15 +14,18 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     name: Deploy
-    # environment 필드와 env.ENV는 같은 값이어야 한다 — 한쪽 수정 시 다른 쪽도 동기화 필요.
-    # GitHub Actions 제약: environment / concurrency / job-level env는 서로 컨텍스트 참조 불가하므로
-    # 동일 표현식을 세 곳에 직접 작성한다.
+    # 아래 세 곳(environment / env.ENV / concurrency.group)은 모두 같은 표현식을 가져야 한다.
+    # 한 곳만 수정하면 환경 분리가 깨진다 — 반드시 셋 다 동기화하여 수정한다.
+    # GitHub Actions 제약: environment / concurrency / job-level env는 서로 컨텍스트 참조 불가.
     environment: ${{ startsWith(github.ref, 'refs/tags/') && 'prod' || 'dev' }}
     env:
       ENV: ${{ startsWith(github.ref, 'refs/tags/') && 'prod' || 'dev' }}
     concurrency:
       group: deploy-${{ startsWith(github.ref, 'refs/tags/') && 'prod' || 'dev' }}
       cancel-in-progress: false
+    # CodeDeploy hang(예: agent 응답 불가) 시 최대 30분 블로킹 방지.
+    # appspec AfterInstall(timeout: 300)은 hook 실행 시간만 제한하며 agent 통신 hang에는 적용 안 됨.
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

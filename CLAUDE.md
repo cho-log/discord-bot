@@ -124,7 +124,9 @@ src/
 
 ## Operations
 
-운영자가 수행할 1회성 작업.
+운영자 1회성 작업. 아래 사전 준비(1~4)를 모두 완료한 후 첫 main push를 트리거한다. 사후 정리(5)는 첫 v1.x.x prod 배포 후에만 실행한다.
+
+## 사전 준비 (첫 main push 전 필수)
 
 ### 1. Discord Developer Portal — dev 봇 앱 생성
 
@@ -137,38 +139,45 @@ prod 봇과 별도의 dev 봇 애플리케이션을 만든다 (Discord Gateway�
 
 저장소 Settings → Environments에서 `dev`, `prod` 두 environment를 생성한다.
 
-**각 environment에 secret 등록** (동일 키, 환경별 다른 값):
+**각 environment에 secret 등록** (동일 키, 환경별 다른 값). `DOTENV` 값은 [`.env.example`](.env.example) 형식의 multiline string으로, 모든 필수 키를 채워서 등록한다 (`create-dotenv` action 에러 메시지에 `.env.example` 참조 안내가 포함됨):
 
-| Secret | dev | prod |
-|--------|-----|------|
-| `DOTENV` | dev `.env` (dev 봇 토큰 포함) | prod `.env` (prod 봇 토큰) |
-| `APPLICATION_NAME` | CodeDeploy application | (동일하면 같은 값) |
-| `DEPLOYMENT_GROUP_NAME` | `*-dev` 형태 (예: `discord-bot-dev`) | prod 그룹명 |
-| `S3_BUCKET_NAME` | dev 버킷 | prod 버킷 (또는 동일 버킷, 키만 분리됨) |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` | IAM user/region | (동일하면 같은 값) |
+| Secret | dev 예시 | prod 예시 |
+|--------|---------|----------|
+| `DOTENV` | dev `.env` 전체 (dev 봇 토큰 포함) | prod `.env` 전체 (prod 봇 토큰) |
+| `APPLICATION_NAME` | `discord-bot` (단일 CodeDeploy Application 아래 두 deployment group 운영 권장) | `discord-bot` |
+| `DEPLOYMENT_GROUP_NAME` | `discord-bot-dev` (반드시 `-dev`로 끝나야 함) | `discord-bot` 또는 `discord-bot-prod` (절대 `-dev`로 끝나면 안 됨) |
+| `S3_BUCKET_NAME` | dev 버킷 또는 동일 버킷 (키는 `deployment-package-dev.zip`으로 자동 분리됨) | prod 버킷 |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` | dev IAM user 또는 prod와 동일 | prod IAM user |
 
-> **중요**: `dev` environment는 생성과 동시에 `DOTENV`를 등록한다. `DOTENV`가 비어 있으면 `create-dotenv` action이 `exit 1`로 차단하므로, secret 미등록 상태에서는 매 main push마다 deploy가 실패한다.
+> **중요 ①**: `dev` environment는 생성과 동시에 `DOTENV`를 등록한다. `DOTENV`가 비어 있으면 `create-dotenv` action이 `exit 1`로 차단하므로, secret 미등록 상태에서는 매 main push마다 deploy가 실패한다.
+
+> **중요 ② — DEPLOYMENT_GROUP_NAME 컨벤션**: `scripts/deploy.sh`는 `DEPLOYMENT_GROUP_NAME` suffix(`-dev`)로 dev/prod를 분기한다. **prod 그룹명에 `-dev`가 포함되면 prod 봇이 dev 디렉토리에 배포되어 운영 봇이 망가진다.** prod 그룹명은 절대 `-dev`로 끝나면 안 된다.
 
 **prod manual approval** — prod environment에 `Required reviewers` 1명(운영자)을 설정한다. 잘못된 태그 push에 대한 안전망이다.
 
 ### 3. CodeDeploy — dev deployment group 추가
 
-기존 prod deployment group과 별도로 `*-dev` 네이밍 컨벤션의 deployment group을 만든다.
+기존 prod deployment group과 별도로 `-dev` suffix를 가진 deployment group을 만든다 (예: `discord-bot-dev`).
 
 - 단일 EC2 + PM2 인스턴스 2개 시나리오에서는 dev/prod 두 group을 같은 EC2 tag에 매칭
 - 추후 EC2 2대 분리 시: deployment group의 EC2 tag만 교체하면 workflow / `scripts/deploy.sh` / `appspec.yml` 변경 없음
-- `scripts/deploy.sh`가 `DEPLOYMENT_GROUP_NAME` suffix(`*-dev`)로 dev/prod를 분기한다
+- 두 group이 같은 CodeDeploy Application 아래 있으면 IAM/배포 설정 일관성 유지가 쉬움
 
 ### 4. EC2 환경
 
-**Node 22** (첫 v1.x.x 배포 전):
+**Node 22 업그레이드** (Java/Spring Boot에서 마이그레이션 중인 EC2 한정).
+
+첫 main push 전이라 `/home/ubuntu/discord-bot/scripts/` 경로가 아직 없을 수 있으므로, 저장소에서 직접 스크립트를 받아 실행한다:
 
 ```bash
-# 기존 Node 20 위에 덮어씀
-bash /home/ubuntu/.../scripts/ubuntu/install-pm2.sh
+curl -fsSL https://raw.githubusercontent.com/cho-log/discord-bot/main/scripts/ubuntu/install-pm2.sh -o /tmp/install-pm2.sh
+bash /tmp/install-pm2.sh
+rm -f /tmp/install-pm2.sh
 ```
 
-**dev 디렉토리 생성**:
+배포 후라면 EC2 내 경로 사용 가능: `bash /home/ubuntu/discord-bot/scripts/ubuntu/install-pm2.sh`.
+
+**dev 디렉토리 생성** — 첫 main push 전 반드시 완료. CodeDeploy AfterInstall hook의 `cd "${DEPLOY_DIR}"`가 디렉토리 부재 시 실패한다.
 
 ```bash
 sudo mkdir -p /home/ubuntu/discord-bot-dev
@@ -177,7 +186,9 @@ sudo chown ubuntu:ubuntu /home/ubuntu/discord-bot-dev
 
 prod 디렉토리(`/home/ubuntu/discord-bot`)는 기존 그대로 유지.
 
-### 5. 첫 v1.x.x 배포 시 운영 경로 정리
+## 첫 v1.x.x 배포 후 정리
+
+### 5. 운영 경로 정리
 
 배포 destination이 `/home/ubuntu/discord-bot.jar`(파일) → `/home/ubuntu/discord-bot/`(디렉토리)로 변경됨:
 
@@ -189,7 +200,7 @@ prod 디렉토리(`/home/ubuntu/discord-bot`)는 기존 그대로 유지.
 - Discord Gateway 재연결에 약 3-6초 다운타임 발생
 - (선택) JDK 정리는 첫 v1.x.x 안정화 후: `sudo apt-get remove --purge openjdk-21-*`
 
-### 6. 배포 보안
+## 배포 보안 (상시)
 
 - S3 업로드 시 `--sse AES256` (server-side encryption)
 - `.env`는 zip 패키지에 포함되지만 GitHub Actions runner에서는 즉시 삭제
