@@ -1,10 +1,12 @@
 name: Deploy
 
-# 배포 트리거: v1+ 태그만 (v0.x.x는 placeholder 보호 게이트)
-# - v[1-9]*: 첫 자리가 1~9인 태그 매치 (v1.0.0, v10.0.0)
-# - v0.x.x: #5~#8 마이그레이션 완료 전까지 deploy 안 됨
+# 배포 트리거:
+#   - main push: dev environment 자동 배포 (검증 게이트)
+#   - v[1-9]+ 태그 push: prod environment 배포 (v0.x.x는 placeholder 보호 게이트)
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v[1-9]*'
 
@@ -12,6 +14,18 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     name: Deploy
+    # 아래 세 곳(environment / env.ENV / concurrency.group)은 모두 같은 표현식을 가져야 한다.
+    # 한 곳만 수정하면 환경 분리가 깨진다 — 반드시 셋 다 동기화하여 수정한다.
+    # GitHub Actions 제약: environment / concurrency / job-level env는 서로 컨텍스트 참조 불가.
+    environment: ${{ startsWith(github.ref, 'refs/tags/') && 'prod' || 'dev' }}
+    env:
+      ENV: ${{ startsWith(github.ref, 'refs/tags/') && 'prod' || 'dev' }}
+    concurrency:
+      group: deploy-${{ startsWith(github.ref, 'refs/tags/') && 'prod' || 'dev' }}
+      cancel-in-progress: false
+    # CodeDeploy hang(예: agent 응답 불가) 시 최대 30분 블로킹 방지.
+    # appspec AfterInstall(timeout: 300)은 hook 실행 시간만 제한하며 agent 통신 hang에는 적용 안 됨.
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -39,6 +53,19 @@ jobs:
       - name: Prune devDependencies
         run: npm prune --omit=dev
 
+      # dev 배포 시에만 appspec.yml destination을 /home/ubuntu/discord-bot-dev로 치환.
+      # 단일 EC2에서 dev/prod가 서로 디렉토리를 덮어쓰지 않도록 분리한다.
+      # sed가 silently 실패하더라도 grep 검증으로 fast-fail.
+      - name: Override appspec destination for dev
+        if: env.ENV == 'dev'
+        run: |
+          sed -i -E 's|^([[:space:]]*)destination: /home/ubuntu/discord-bot$|\1destination: /home/ubuntu/discord-bot-dev|' appspec.yml
+          if ! grep -qE "^[[:space:]]*destination: /home/ubuntu/discord-bot-dev$" appspec.yml; then
+            echo "::error::sed substitution failed — appspec.yml destination not changed to dev path" >&2
+            cat appspec.yml >&2
+            exit 1
+          fi
+
       - name: Create deploy package
         run: zip -r deployment-package.zip dist/ node_modules/ package.json package-lock.json appspec.yml scripts/ .env
 
@@ -54,11 +81,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      # S3 키를 environment별로 분리해 dev/prod 패키지 race 차단.
       - name: Upload to S3 (server-side encryption)
         env:
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
         run: |
-          aws s3 cp deployment-package.zip "s3://${S3_BUCKET_NAME}/deployment-package.zip" \
+          aws s3 cp deployment-package.zip "s3://${S3_BUCKET_NAME}/deployment-package-${ENV}.zip" \
             --sse AES256
 
       - name: Trigger CodeDeploy
@@ -71,11 +99,11 @@ jobs:
           DEPLOYMENT_ID=$(aws deploy create-deployment \
             --application-name "${APPLICATION_NAME}" \
             --deployment-group-name "${DEPLOYMENT_GROUP_NAME}" \
-            --s3-location "bucket=${S3_BUCKET_NAME},key=deployment-package.zip,bundleType=zip" \
+            --s3-location "bucket=${S3_BUCKET_NAME},key=deployment-package-${ENV}.zip,bundleType=zip" \
             --query 'deploymentId' \
             --output text)
           echo "deployment_id=${DEPLOYMENT_ID}" >> "$GITHUB_OUTPUT"
-          echo "Started CodeDeploy deployment: ${DEPLOYMENT_ID}"
+          echo "Started CodeDeploy deployment (${ENV}): ${DEPLOYMENT_ID}"
 
       # 배포 결과를 workflow에 반영 (CodeDeploy 비동기 → 동기화)
       - name: Wait for CodeDeploy completion
