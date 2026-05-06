@@ -9,9 +9,15 @@
 #     (예: `discord-bot-production-dev` 같은 이름은 금지 — case 패턴이 dev로 잘못 매칭하여 prod 봇이 dev 디렉토리에 배포된다.)
 set -euo pipefail
 
-# CodeDeploy가 hook 실행 시 자동 주입한다.
-# 미정의 시(로컬 수동 실행 등) prod 폴백 — CodeDeploy 정상 흐름에서는 절대 도달하지 않는 경로.
-case "${DEPLOYMENT_GROUP_NAME:-}" in
+# CodeDeploy가 hook 실행 시 자동 주입한다. 미정의 시 fail-closed로 즉시 중단 —
+# fail-open(prod 폴백)은 변수 주입 실패나 로컬 수동 실행 시 prod 디렉토리/PM2 프로세스를
+# 의도치 않게 조작할 위험이 있다.
+if [ -z "${DEPLOYMENT_GROUP_NAME:-}" ]; then
+    echo "Error: DEPLOYMENT_GROUP_NAME is not set. Deployment aborted." >&2
+    exit 1
+fi
+
+case "${DEPLOYMENT_GROUP_NAME}" in
     *-dev)
         PM2_NAME=discord-bot-dev
         DEPLOY_DIR=/home/ubuntu/discord-bot-dev
