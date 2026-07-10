@@ -6,28 +6,45 @@
 
 ## 목적
 
-초록 교육 **하루짜리 행사**에서, 참가자가 Discord 슬래시 커맨드로 **본인 이름을 입력하면
-배정된 네트워크(게스트) 계정의 id/password를 즉시 확인**할 수 있게 한다.
+초록 교육 **하루짜리 행사**(2026 여름 초록 밋업)에서, 참가자가 Discord 슬래시 커맨드로
+**본인 이름을 입력하면 배정된 게스트 네트워크 계정의 username/password를 즉시 확인**할 수 있게 한다.
 
 행사 당일에만 쓰이는 **휘발성 데이터**이며, 종료 후 계정 정보는 폐기된다.
 
+## 실제 데이터 (2026-07-10 확인)
+
+두 원본 파일이 있고, 서로 매핑되어 있지 않다:
+
+- **참가자 목록** (설문 응답 시트): 컬럼 `이름` 등 7개. 데이터 **56명**, 전원 이름 있음,
+  전원 `참가비 입금 확인 = 네`, **동명이인 없음(56개 고유)**.
+- **계정 풀** (GuestManager export): 20개 컬럼. 로그인에 쓰는 값은 `username`(12자) + `password`(12자).
+  `id`(5자리 내부 DB 번호)는 로그인에 불필요. 데이터 **60개**, 전부 동일한 익명 방문객 계정
+  (`role_name=방문객-인터넷만`, 참가자 이름 컬럼 없음).
+
+**결론**: 계정은 랜덤·교체가능하고 참가자↔계정 매핑이 없다. 참가자 56명 ≤ 계정 60개라 부족하지 않다.
+→ **행사 전 1회, 두 파일을 묶어 `name,username,password` 매핑 CSV를 생성**하고, 봇은 그 CSV를
+이름으로 정적 조회한다. 계정이 교체가능하므로 순서대로 하나씩 짝지으면 된다(56명 ↔ 계정 56개, 4개 예비).
+
 ## 범위
 
-- **포함**: `/내계정` 슬래시 커맨드 하나. CSV에서 이름으로 계정 조회, 본인만 보이는(ephemeral) 응답.
+- **포함**: `/내계정` 슬래시 커맨드 하나. 매핑 CSV에서 이름으로 계정 조회, 본인만 보이는(ephemeral) 응답.
+- **포함**: 두 원본 CSV를 묶어 `name,username,password` 매핑 CSV를 만드는 **1회성 빌드 스크립트**.
 - **불포함**: 슬래시 커맨드 프레임워크(#6의 SlashCommand 인터페이스/Registry/Router).
   커맨드가 이 하나뿐이므로 프레임워크 없이 **최소 구현**한다. 커맨드가 늘어나면 그때 #6을 도입한다.
-- **불포함**: Discord 유저 ↔ 계정 매핑, 인증/권한 체크.
+- **불포함**: Discord 유저 ↔ 계정 매핑, 인증/권한 체크, 런타임 계정 배정/상태 저장.
 
 ## 결정 사항 (brainstorming 결과)
 
 | 항목 | 결정 | 이유 |
 |------|------|------|
-| 조회 키 | 사용자가 입력한 **이름**(완전일치, 앞뒤 trim) | 운영자가 가진 데이터가 `이름 → 계정`뿐. Discord 매핑은 번거로워 제외 |
+| 조회 키 | 사용자가 입력한 **이름**(완전일치, 앞뒤 trim) | 참가자 목록의 유일 식별자가 이름. Discord 매핑은 번거로워 제외 |
+| 계정 필드 | **username + password** (`id` 제외) | GuestManager `username`이 로그인 계정명, `id`는 내부 DB 번호라 불필요 |
+| 매핑 생성 | **행사 전 1회, 빌드 스크립트로 `name,username,password` CSV 생성** | 계정이 랜덤·교체가능 → 순서대로 짝지음. 런타임 상태 저장 불필요, 봇은 정적 조회만 |
 | 응답 방식 | **Ephemeral**(본인만 보임) | 비밀번호가 채널·DM 어디에도 안 남음. 노출 최소화 |
 | 데이터 위치 | **EC2 디스크 파일**, 경로는 env `GUEST_ACCOUNTS_CSV_PATH` | git·secret·재배포 없이 운영자가 파일만 교체/삭제. 평문 비번이 저장소·S3에 안 남음 |
 | 로딩 시점 | **요청 시마다 파일 읽기** (startup 1회 로드 아님) | 파일 교체·삭제가 재시작 없이 즉시 반영. 행사 후 `rm` 하면 조회 자동 차단(fail-closed) |
 | 커맨드 등록 | **guild scope** (`guild.commands.set`) | Java 레거시와 동일. 즉시 반영 |
-| 동명이인 | 운영자가 CSV에서 사전 정리(유일성 보장). 코드엔 방어 가드만 | 엉뚱한 사람 비번 노출 방지 |
+| 동명이인 | 현재 데이터엔 없음(56 고유). 코드엔 방어 가드만 유지 | 엉뚱한 사람 비번 노출 방지 |
 
 ## 아키텍처
 
@@ -43,17 +60,27 @@ src/
 ├── config/
 │   └── schema.ts         # (수정) GUEST_ACCOUNTS_CSV_PATH 추가
 └── index.ts              # (수정) ready 후 커맨드 등록 + interactionCreate 핸들러 연결
+
+scripts/
+└── build-accounts.mjs    # 1회성: 참가자 CSV + 계정 CSV → name,username,password 매핑 CSV
 ```
 
 ### 컴포넌트
 
+**`scripts/build-accounts.mjs` — 매핑 빌드 (1회성, 봇 런타임 아님)**
+- 실행: `node scripts/build-accounts.mjs <참가자.csv> <계정.csv> <출력.csv>`
+- 참가자 CSV에서 `이름` 컬럼, 계정 CSV에서 `username`/`password` 컬럼을 뽑아
+  순서대로(index) 짝지어 `name,username,password` 헤더의 CSV를 출력.
+- Node 내장 기능만 사용(제로 의존성). 따옴표·쉼표 포함 필드를 다루므로 최소 CSV 파서/직렬화 포함.
+- 참가자 수 > 계정 수면 에러로 중단(누구는 계정 없이 남는 상황 방지). 남는 계정은 무시.
+- 실데이터를 다루므로 로컬/운영자 PC에서만 실행하고 출력물은 gitignore.
+
 **`csv.ts` — 데이터 계층 (순수, I/O 없음)**
-- `type GuestAccount = { name: string; id: string; password: string }`
+- `type GuestAccount = { name: string; username: string; password: string }`
 - `parseAccountsCsv(text: string): GuestAccount[]`
-  - 첫 줄은 헤더(`name,id,password`). 이후 각 줄을 레코드로.
+  - 첫 줄은 헤더(`name,username,password`). 이후 각 줄을 레코드로.
   - 빈 줄 무시. 각 필드 trim.
-  - **전제**: 필드 안에 쉼표 없음 → 단순 `split(',')` (제로 의존성).
-    비번에 쉼표가 필요해지면 그때 `csv-parse` 도입 (YAGNI).
+  - **전제**: 매핑 CSV는 빌드 스크립트가 생성하며 필드 안에 쉼표 없음 → 단순 `split(',')` (제로 의존성).
 - `lookupByName(accounts: GuestAccount[], name: string): LookupResult`
   - 입력 이름 trim 후 완전일치.
   - 반환: `{ kind: 'found', account }` | `{ kind: 'not-found' }` | `{ kind: 'ambiguous' }`(동명이인 방어).
@@ -92,7 +119,7 @@ src/
 | 파일 없음 / 읽기 실패 | "계정 정보가 아직 준비되지 않았어요. 운영자에게 문의하세요." |
 | 이름 못 찾음 (`not-found`) | "'{이름}'으로 등록된 계정을 찾지 못했어요. 이름을 확인해 주세요." |
 | 동명이인 (`ambiguous`) | "동명이인이 있어 확인이 어렵습니다. 운영자에게 문의하세요." |
-| 정상 (`found`) | "**id**: `{id}`\n**password**: `{password}`" (코드블록으로 복사 편의) |
+| 정상 (`found`) | "**username**: `{username}`\n**password**: `{password}`" (코드블록으로 복사 편의) |
 | 핸들러 예외 | catch 후 ephemeral 일반 오류 메시지, 콘솔 error 로그 |
 
 ## 설정 변경
@@ -105,11 +132,13 @@ GUEST_ACCOUNTS_CSV_PATH: z.string().trim().min(1).default('data/accounts.csv'),
 
 ## 보안 / 운영
 
-- CSV는 **절대 git 커밋 금지**. `.gitignore`에 `data/accounts.csv`(또는 `data/*.csv`) 추가.
-- 운영 수칙(README/CLAUDE.md 운영 섹션에 1줄):
-  - 행사 전: CSV를 EC2 경로에 업로드 후 `chmod 600`.
+- 실데이터 CSV(원본 2개 + 매핑 결과)는 **절대 git 커밋 금지**. `.gitignore`에 `data/*.csv` 추가하고
+  `data/*.example.csv`(가짜 예시)만 허용.
+- 운영 수칙(CLAUDE.md 운영 섹션):
+  - 행사 전: 로컬에서 `node scripts/build-accounts.mjs`로 매핑 CSV 생성 → EC2 경로에 업로드 후 `chmod 600`.
   - 행사 후: `rm` 으로 즉시 삭제 → 조회 자동 차단.
-- 테스트 픽스처의 계정/비번은 전부 **가짜 값**만 사용.
+- 매핑 CSV엔 참가자 이름 + 자격증명이 함께 담기므로, 원본 계정 CSV와 동일하게 취급(EC2 디스크에만 잠깐 존재).
+- 테스트 픽스처/예시의 계정·비번·이름은 전부 **가짜 값**만 사용.
 
 ## 테스트 전략 (vitest)
 

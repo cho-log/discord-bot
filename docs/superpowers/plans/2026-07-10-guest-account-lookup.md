@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 참가자가 `/내계정 이름:조부용` 슬래시 커맨드로 배정된 네트워크 계정의 id/password를 본인만 보이는(ephemeral) 메시지로 확인한다.
+**Goal:** 참가자가 `/내계정 이름:조부용` 슬래시 커맨드로 배정된 게스트 계정의 username/password를 본인만 보이는(ephemeral) 메시지로 확인한다.
 
-**Architecture:** 슬래시 커맨드 프레임워크 없이 최소 구현. 순수 데이터 계층(`csv.ts`: 파싱·조회)과 표현/배선 계층(`command.ts`: 응답 문구 생성 + fs 읽기 + Discord 핸들러)을 분리한다. CSV는 EC2 디스크 파일로 두고 커맨드 실행 때마다 읽어, 행사 후 파일 삭제 시 조회가 자동 차단(fail-closed)된다.
+**Architecture:** 슬래시 커맨드 프레임워크 없이 최소 구현. 행사 전 1회성 스크립트로 참가자 목록 + 계정 풀을 묶어 `name,username,password` 매핑 CSV를 만들고, 봇은 그 CSV를 정적 조회한다. 봇은 순수 데이터 계층(`csv.ts`: 파싱·조회)과 표현/배선 계층(`command.ts`: 응답 문구 생성 + fs 읽기 + Discord 핸들러)으로 분리한다. CSV는 EC2 디스크 파일로 두고 커맨드 실행 때마다 읽어, 행사 후 파일 삭제 시 조회가 자동 차단(fail-closed)된다.
 
 **Tech Stack:** TypeScript 5.9 (ESM, Node16), discord.js ^14.26, Zod ^4.4, Vitest 4, Node 22+ `node:fs/promises`.
 
@@ -92,7 +92,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: 없음 (순수, I/O 없음).
 - Produces:
-  - `type GuestAccount = { name: string; id: string; password: string }`
+  - `type GuestAccount = { name: string; username: string; password: string }`
   - `type LookupResult = { kind: 'found'; account: GuestAccount } | { kind: 'not-found' } | { kind: 'ambiguous' }`
   - `parseAccountsCsv(text: string): GuestAccount[]`
   - `lookupByName(accounts: GuestAccount[], name: string): LookupResult`
@@ -106,24 +106,26 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 import { describe, expect, test } from 'vitest';
 import { lookupByName, parseAccountsCsv } from './csv.js';
 
-const CSV = `name,id,password
-조부용,guest-01,ab12cd34
-홍길동,guest-02,ef56gh78
-홍길동,guest-03,zz99zz99`;
+const CSV = `name,username,password
+조부용,guest0000001,ab12cd34ef56
+홍길동,guest0000002,gh78ij90kl12
+홍길동,guest0000003,zz99zz99zz99`;
 
 describe('parseAccountsCsv', () => {
   test('parses rows and skips the header', () => {
-    const accounts = parseAccountsCsv('name,id,password\n조부용,guest-01,ab12cd34');
-    expect(accounts).toEqual([{ name: '조부용', id: 'guest-01', password: 'ab12cd34' }]);
+    const accounts = parseAccountsCsv('name,username,password\n조부용,guest0000001,ab12cd34ef56');
+    expect(accounts).toEqual([{ name: '조부용', username: 'guest0000001', password: 'ab12cd34ef56' }]);
   });
 
   test('trims fields and ignores blank lines', () => {
-    const accounts = parseAccountsCsv('name,id,password\n\n  조부용 , guest-01 , ab12cd34 \n');
-    expect(accounts).toEqual([{ name: '조부용', id: 'guest-01', password: 'ab12cd34' }]);
+    const accounts = parseAccountsCsv(
+      'name,username,password\n\n  조부용 , guest0000001 , ab12cd34ef56 \n',
+    );
+    expect(accounts).toEqual([{ name: '조부용', username: 'guest0000001', password: 'ab12cd34ef56' }]);
   });
 
   test('returns empty array for header-only or empty input', () => {
-    expect(parseAccountsCsv('name,id,password')).toEqual([]);
+    expect(parseAccountsCsv('name,username,password')).toEqual([]);
     expect(parseAccountsCsv('')).toEqual([]);
   });
 });
@@ -134,14 +136,14 @@ describe('lookupByName', () => {
   test('returns found for a unique name', () => {
     expect(lookupByName(accounts, '조부용')).toEqual({
       kind: 'found',
-      account: { name: '조부용', id: 'guest-01', password: 'ab12cd34' },
+      account: { name: '조부용', username: 'guest0000001', password: 'ab12cd34ef56' },
     });
   });
 
   test('trims the query name before matching', () => {
     expect(lookupByName(accounts, '  조부용  ')).toEqual({
       kind: 'found',
-      account: { name: '조부용', id: 'guest-01', password: 'ab12cd34' },
+      account: { name: '조부용', username: 'guest0000001', password: 'ab12cd34ef56' },
     });
   });
 
@@ -167,7 +169,7 @@ Expected: FAIL — `Cannot find module './csv.js'`.
 ```ts
 export type GuestAccount = {
   name: string;
-  id: string;
+  username: string;
   password: string;
 };
 
@@ -176,8 +178,7 @@ export type LookupResult =
   | { kind: 'not-found' }
   | { kind: 'ambiguous' };
 
-// 전제: 필드 안에 쉼표 없음 (운영자가 관리하는 단순 CSV). 첫 줄은 헤더.
-// 쉼표 포함 값이 필요해지면 그때 csv-parse 의존성 도입 (YAGNI).
+// 전제: 매핑 CSV는 build-accounts 스크립트가 생성하며 필드 안에 쉼표 없음. 첫 줄은 헤더.
 export function parseAccountsCsv(text: string): GuestAccount[] {
   const lines = text
     .split(/\r?\n/)
@@ -189,8 +190,8 @@ export function parseAccountsCsv(text: string): GuestAccount[] {
   }
 
   return lines.slice(1).map((line) => {
-    const [name, id, password] = line.split(',').map((field) => field.trim());
-    return { name: name ?? '', id: id ?? '', password: password ?? '' };
+    const [name, username, password] = line.split(',').map((field) => field.trim());
+    return { name: name ?? '', username: username ?? '', password: password ?? '' };
   });
 }
 
@@ -246,20 +247,20 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 import { describe, expect, test } from 'vitest';
 import { buildAccountReply } from './command.js';
 
-const CSV = `name,id,password
-조부용,guest-01,ab12cd34
-홍길동,guest-02,ef56gh78
-홍길동,guest-03,zz99zz99`;
+const CSV = `name,username,password
+조부용,guest0000001,ab12cd34ef56
+홍길동,guest0000002,gh78ij90kl12
+홍길동,guest0000003,zz99zz99zz99`;
 
 describe('buildAccountReply', () => {
   test('returns not-ready message when csv text is null', () => {
     expect(buildAccountReply(null, '조부용')).toContain('준비되지 않았');
   });
 
-  test('returns id and password for a found account', () => {
+  test('returns username and password for a found account', () => {
     const reply = buildAccountReply(CSV, '조부용');
-    expect(reply).toContain('guest-01');
-    expect(reply).toContain('ab12cd34');
+    expect(reply).toContain('guest0000001');
+    expect(reply).toContain('ab12cd34ef56');
   });
 
   test('returns not-found message with the queried name', () => {
@@ -312,7 +313,7 @@ export function buildAccountReply(csvText: string | null, name: string): string 
     case 'ambiguous':
       return '동명이인이 있어 확인이 어렵습니다. 운영자에게 문의하세요.';
     case 'found':
-      return `**id**: \`${result.account.id}\`\n**password**: \`${result.account.password}\``;
+      return `**username**: \`${result.account.username}\`\n**password**: \`${result.account.password}\``;
   }
 }
 ```
@@ -389,7 +390,7 @@ describe('createMyAccountHandler', () => {
     >;
     expect(reply).toHaveBeenCalledTimes(1);
     const arg = reply.mock.calls[0]?.[0] as { content: string; flags: number };
-    expect(arg.content).toContain('guest-01');
+    expect(arg.content).toContain('guest0000001');
     expect(arg.flags).toBeDefined();
   });
 
@@ -502,9 +503,9 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 `data/accounts.example.csv` 생성:
 
 ```csv
-name,id,password
-홍길동,guest-01,changeme01
-김초록,guest-02,changeme02
+name,username,password
+홍길동,guest0000001,changeme000001
+김초록,guest0000002,changeme000002
 ```
 
 - [ ] **Step 2: `.gitignore`에 실데이터 제외 규칙 추가**
@@ -560,7 +561,7 @@ cp data/accounts.example.csv data/accounts.csv
 npm run dev
 ```
 
-Discord 서버에서 `/내계정 이름:홍길동` 실행 → 본인만 보이는 메시지로 `guest-01` / `changeme01` 응답 확인. `/내계정 이름:없는사람` → "찾지 못" 응답. `rm data/accounts.csv` 후 재실행 → "준비되지 않았" 응답.
+Discord 서버에서 `/내계정 이름:홍길동` 실행 → 본인만 보이는 메시지로 `guest0000001` / `changeme000001` 응답 확인. `/내계정 이름:없는사람` → "찾지 못" 응답. `rm data/accounts.csv` 후 재실행 → "준비되지 않았" 응답.
 
 - [ ] **Step 6: 커밋**
 
@@ -573,7 +574,172 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 6: 운영 문서 갱신
+### Task 6: 매핑 빌드 스크립트 `scripts/build-accounts.mjs`
+
+행사 전 1회, 참가자 목록 CSV와 계정 풀 CSV를 묶어 봇이 읽을 `name,username,password` CSV를 만든다.
+봇 런타임과 무관한 운영 도구다.
+
+**Files:**
+- Create: `scripts/build-accounts.mjs`
+- Create: `scripts/build-accounts.test.mjs`
+
+**Interfaces:**
+- Consumes: 없음 (독립 실행 스크립트).
+- Produces: `buildAccountsCsv(participantsCsv: string, accountsCsv: string): string` (export), CLI 엔트리.
+
+- [ ] **Step 1: 실패하는 테스트 작성**
+
+`scripts/build-accounts.test.mjs` 생성:
+
+```js
+import { describe, expect, test } from 'vitest';
+import { buildAccountsCsv } from './build-accounts.mjs';
+
+const PARTICIPANTS = `타임스탬프,"개인정보 수집, 이용에 동의합니다.",이름,소속,직업,기대,참가비 입금 확인
+2026-07-01,동의,조부용,SCG,개발자,네트워킹,네
+2026-07-01,동의,김초록,우테코,대학생,강연,네`;
+
+const ACCOUNTS = `번호,role_id,role_name,password,username,id
+1,7,방문객,pw0000000001,guest0000001,10001
+2,7,방문객,pw0000000002,guest0000002,10002
+3,7,방문객,pw0000000003,guest0000003,10003`;
+
+describe('buildAccountsCsv', () => {
+  test('pairs participants with accounts by row order', () => {
+    const out = buildAccountsCsv(PARTICIPANTS, ACCOUNTS);
+    expect(out).toBe(
+      'name,username,password\n조부용,guest0000001,pw0000000001\n김초록,guest0000002,pw0000000002',
+    );
+  });
+
+  test('throws when there are more participants than accounts', () => {
+    const tooFew = `번호,role_id,role_name,password,username,id
+1,7,방문객,pw0000000001,guest0000001,10001`;
+    expect(() => buildAccountsCsv(PARTICIPANTS, tooFew)).toThrow(/참가자.*계정/);
+  });
+});
+```
+
+- [ ] **Step 2: 테스트가 실패하는지 확인**
+
+Run: `npm test -- scripts/build-accounts.test.mjs`
+Expected: FAIL — `Cannot find module './build-accounts.mjs'`.
+
+- [ ] **Step 3: 최소 구현 작성**
+
+`scripts/build-accounts.mjs` 생성:
+
+```js
+import { readFile, writeFile } from 'node:fs/promises';
+
+// 따옴표/쉼표 포함 필드를 다루는 최소 RFC4180 파서.
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"' && text[i + 1] === '"') {
+        field += '"';
+        i += 1;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      row.push(field);
+      field = '';
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i += 1;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else {
+      field += ch;
+    }
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows.filter((r) => r.some((c) => c.trim().length > 0));
+}
+
+function columnIndex(header, predicate) {
+  const idx = header.findIndex(predicate);
+  if (idx === -1) throw new Error(`필요한 컬럼을 찾지 못했습니다: ${header.join(',')}`);
+  return idx;
+}
+
+export function buildAccountsCsv(participantsCsv, accountsCsv) {
+  const pRows = parseCsv(participantsCsv);
+  const aRows = parseCsv(accountsCsv);
+  const pHeader = pRows[0];
+  const aHeader = aRows[0];
+
+  const nameIdx = columnIndex(pHeader, (h) => h.trim() === '이름');
+  const userIdx = columnIndex(aHeader, (h) => h.trim() === 'username');
+  const passIdx = columnIndex(aHeader, (h) => h.trim() === 'password');
+
+  const names = pRows.slice(1).map((r) => (r[nameIdx] ?? '').trim()).filter((n) => n.length > 0);
+  const accounts = aRows.slice(1).map((r) => ({
+    username: (r[userIdx] ?? '').trim(),
+    password: (r[passIdx] ?? '').trim(),
+  }));
+
+  if (names.length > accounts.length) {
+    throw new Error(`참가자(${names.length})가 계정(${accounts.length})보다 많습니다.`);
+  }
+
+  const lines = ['name,username,password'];
+  names.forEach((name, i) => {
+    const acc = accounts[i];
+    lines.push(`${name},${acc.username},${acc.password}`);
+  });
+  return lines.join('\n');
+}
+
+// CLI: node scripts/build-accounts.mjs <참가자.csv> <계정.csv> <출력.csv>
+const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop());
+if (isMain) {
+  const [, , participantsPath, accountsPath, outPath] = process.argv;
+  if (!participantsPath || !accountsPath || !outPath) {
+    console.error('usage: node scripts/build-accounts.mjs <참가자.csv> <계정.csv> <출력.csv>');
+    process.exit(1);
+  }
+  const [p, a] = await Promise.all([
+    readFile(participantsPath, 'utf8'),
+    readFile(accountsPath, 'utf8'),
+  ]);
+  const out = buildAccountsCsv(p, a);
+  await writeFile(outPath, out, 'utf8');
+  console.log(`wrote ${out.split('\n').length - 1} rows to ${outPath}`);
+}
+```
+
+- [ ] **Step 4: 테스트 통과 확인**
+
+Run: `npm test -- scripts/build-accounts.test.mjs`
+Expected: PASS (2건).
+
+- [ ] **Step 5: 커밋**
+
+```bash
+git add scripts/build-accounts.mjs scripts/build-accounts.test.mjs
+git commit -m "feat(scripts): 참가자·계정 매핑 CSV 빌드 스크립트 추가
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 7: 운영 문서 갱신
 
 **Files:**
 - Modify: `CLAUDE.md`
@@ -590,14 +756,17 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```markdown
 ### 5. 게스트 계정 CSV 운영 (`/내계정` 커맨드)
 
-행사 참가자가 `/내계정 이름:홍길동`으로 배정된 네트워크 계정(id/password)을
+행사 참가자가 `/내계정`에 본인 이름을 입력하면 배정된 게스트 계정(username/password)을
 본인만 보이는(ephemeral) 메시지로 확인한다. 데이터는 하루 행사용 휘발성 값이다.
 
 - CSV 경로는 env `GUEST_ACCOUNTS_CSV_PATH` (기본값 `data/accounts.csv`).
-- 형식은 `data/accounts.example.csv` 참고 (`name,id,password` 헤더).
-- **행사 전**: CSV를 경로에 업로드 후 `chmod 600`. 이름 중복(동명이인) 없는지 확인.
+- 형식은 `data/accounts.example.csv` 참고 (`name,username,password` 헤더).
+- **행사 전**: 로컬에서 매핑 CSV를 생성 후 EC2 경로에 업로드하고 `chmod 600`.
+  ```bash
+  node scripts/build-accounts.mjs <참가자.csv> <계정.csv> data/accounts.csv
+  ```
 - **행사 후**: `rm <csv>` 으로 즉시 삭제 → 조회가 자동 차단된다(fail-closed).
-- 실데이터 CSV는 `.gitignore`로 커밋이 차단되어 있다. 절대 커밋하지 말 것.
+- 실데이터 CSV(원본 2개 + 매핑 결과)는 `.gitignore`로 커밋이 차단되어 있다. 절대 커밋하지 말 것.
 ```
 
 - [ ] **Step 2: 커밋**
@@ -614,16 +783,18 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Self-Review
 
 **Spec coverage:**
+- 매핑 CSV 생성 (참가자+계정 → name,username,password) → Task 6 (`build-accounts.mjs`). ✅
 - 이름 입력 조회 → Task 2 (`lookupByName`) + Task 4 (옵션 `이름` 획득). ✅
+- 계정 필드 username+password → Task 2 (`GuestAccount`) + Task 3 (`found` 문구). ✅
 - Ephemeral 응답 → Task 4 (`MessageFlags.Ephemeral`). ✅
 - EC2 파일 + env 경로 → Task 1 (`GUEST_ACCOUNTS_CSV_PATH`) + Task 5 (fetch/set). ✅
 - 요청 시마다 읽기 (fail-closed) → Task 4 (`readCsv` 매 호출) + Task 5 스모크. ✅
 - guild scope 등록 → Task 5. ✅
-- 동명이인 방어 → Task 2 (`ambiguous`) + Task 3 (문구). ✅
+- 동명이인 방어 → Task 2 (`ambiguous`) + Task 3 (문구). 현재 데이터엔 없지만 가드 유지. ✅
 - 엣지케이스(파일없음/못찾음/동명이인/정상/예외) → Task 3~4. 핸들러 예외는 `index.ts`의 IIFE catch가 부트스트랩 실패만 잡고, 커맨드 런타임 예외는 discord.js가 "응답 실패"로 처리 — 스펙의 "핸들러 예외" 행은 커맨드 내부에서 throw 가능 지점이 fs(이미 try/catch)와 `getString`(옵션 필수라 안전)뿐이라 추가 catch 불필요. ✅
 - git 커밋 금지 + .gitignore → Task 5. ✅
-- 테스트 전략 → Task 2~4 vitest. ✅
+- 테스트 전략 → Task 2~4, 6 vitest. ✅
 
 **Placeholder scan:** TBD/TODO/"적절히 처리" 없음. 모든 코드 스텝에 실제 코드 포함. ✅
 
-**Type consistency:** `GuestAccount`/`LookupResult`/`parseAccountsCsv`/`lookupByName`(Task 2) ↔ `buildAccountReply`(Task 3) ↔ `createMyAccountHandler`(Task 4) ↔ `myAccountCommandData`/handler(Task 5) 시그니처 일치. `EventHandler<'interactionCreate'>`는 기존 `src/discord/event-handler.ts` 정의를 그대로 사용. ✅
+**Type consistency:** `GuestAccount { name, username, password }`/`LookupResult`/`parseAccountsCsv`/`lookupByName`(Task 2) ↔ `buildAccountReply`(Task 3) ↔ `createMyAccountHandler`(Task 4) ↔ `myAccountCommandData`/handler(Task 5) 시그니처 일치. Task 6이 출력하는 `name,username,password` 헤더가 Task 2 파서 기대와 일치. `EventHandler<'interactionCreate'>`는 기존 `src/discord/event-handler.ts` 정의를 그대로 사용. ✅
