@@ -9,14 +9,18 @@ const CSV = `name,username,password
 describe('parseAccountsCsv', () => {
   test('parses rows and skips the header', () => {
     const accounts = parseAccountsCsv('name,username,password\n조부용,guest0000001,ab12cd34ef56');
-    expect(accounts).toEqual([{ name: '조부용', username: 'guest0000001', password: 'ab12cd34ef56' }]);
+    expect(accounts).toEqual([
+      { name: '조부용', username: 'guest0000001', password: 'ab12cd34ef56' },
+    ]);
   });
 
   test('trims fields and ignores blank lines', () => {
     const accounts = parseAccountsCsv(
       'name,username,password\n\n  조부용 , guest0000001 , ab12cd34ef56 \n',
     );
-    expect(accounts).toEqual([{ name: '조부용', username: 'guest0000001', password: 'ab12cd34ef56' }]);
+    expect(accounts).toEqual([
+      { name: '조부용', username: 'guest0000001', password: 'ab12cd34ef56' },
+    ]);
   });
 
   test('returns empty array for header-only or empty input', () => {
