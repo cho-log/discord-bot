@@ -605,11 +605,23 @@ const ACCOUNTS = `번호,role_id,role_name,password,username,id
 3,7,방문객,pw0000000003,guest0000003,10003`;
 
 describe('buildAccountsCsv', () => {
-  test('pairs participants with accounts by row order', () => {
+  test('pairs participants and names leftover accounts 임시1..임시K', () => {
     const out = buildAccountsCsv(PARTICIPANTS, ACCOUNTS);
     expect(out).toBe(
-      'name,username,password\n조부용,guest0000001,pw0000000001\n김초록,guest0000002,pw0000000002',
+      'name,username,password\n' +
+        '조부용,guest0000001,pw0000000001\n' +
+        '김초록,guest0000002,pw0000000002\n' +
+        '임시1,guest0000003,pw0000000003',
     );
+  });
+
+  test('produces no 임시 rows when counts match exactly', () => {
+    const twoAccounts = `번호,role_id,role_name,password,username,id
+1,7,방문객,pw0000000001,guest0000001,10001
+2,7,방문객,pw0000000002,guest0000002,10002`;
+    const out = buildAccountsCsv(PARTICIPANTS, twoAccounts);
+    expect(out).not.toContain('임시');
+    expect(out.split('\n')).toHaveLength(3); // header + 2 participants
   });
 
   test('throws when there are more participants than accounts', () => {
@@ -697,10 +709,12 @@ export function buildAccountsCsv(participantsCsv, accountsCsv) {
     throw new Error(`참가자(${names.length})가 계정(${accounts.length})보다 많습니다.`);
   }
 
+  // 참가자에 계정을 순서대로 배정하고, 남는 계정은 임시1..임시K 예비로 채운다.
+  const rowNames = accounts.map((_, i) => names[i] ?? `임시${i - names.length + 1}`);
+
   const lines = ['name,username,password'];
-  names.forEach((name, i) => {
-    const acc = accounts[i];
-    lines.push(`${name},${acc.username},${acc.password}`);
+  accounts.forEach((acc, i) => {
+    lines.push(`${rowNames[i]},${acc.username},${acc.password}`);
   });
   return lines.join('\n');
 }
@@ -726,7 +740,7 @@ if (isMain) {
 - [ ] **Step 4: 테스트 통과 확인**
 
 Run: `npm test -- scripts/build-accounts.test.mjs`
-Expected: PASS (2건).
+Expected: PASS (3건).
 
 - [ ] **Step 5: 커밋**
 
