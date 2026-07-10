@@ -8,8 +8,10 @@ import {
 import type { EventHandler } from '../discord/event-handler.js';
 import { lookupByName, parseAccountsCsv } from './csv.js';
 
+const MY_ACCOUNT_COMMAND_NAME = '내계정';
+
 export const myAccountCommandData: ApplicationCommandDataResolvable = {
-  name: '내계정',
+  name: MY_ACCOUNT_COMMAND_NAME,
   description: '배정된 게스트 네트워크 계정을 확인합니다',
   options: [
     {
@@ -40,7 +42,13 @@ export function buildAccountReply(csvText: string | null, name: string): string 
 async function readCsv(path: string): Promise<string | null> {
   try {
     return await readFile(path, 'utf8');
-  } catch {
+  } catch (err) {
+    // 파일 없음(ENOENT)은 행사 후 삭제된 정상 상태이므로 조용히 null.
+    // 그 외(권한/디코드 등)는 운영자가 알아챌 수 있도록 로그를 남긴다.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT') {
+      console.warn('[guest-accounts] accounts CSV 읽기 실패', err);
+    }
     return null;
   }
 }
@@ -49,12 +57,20 @@ export function createMyAccountHandler(csvPath: string): EventHandler<'interacti
   return {
     event: 'interactionCreate',
     handle: async (interaction: Interaction): Promise<void> => {
-      if (!interaction.isChatInputCommand() || interaction.commandName !== '내계정') {
+      if (
+        !interaction.isChatInputCommand() ||
+        interaction.commandName !== MY_ACCOUNT_COMMAND_NAME
+      ) {
         return;
       }
       const name = interaction.options.getString('이름', true);
       const content = buildAccountReply(await readCsv(csvPath), name);
-      await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+      try {
+        await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+      } catch (err) {
+        // reply 실패(네트워크/토큰만료/이미 응답됨)는 unhandled rejection이 되지 않도록 삼킨다.
+        console.error('[guest-accounts] /내계정 응답 실패', err);
+      }
     },
   };
 }

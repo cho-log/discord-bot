@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
 
 // 따옴표/쉼표 포함 필드를 다루는 최소 RFC4180 파서.
 function parseCsv(text) {
@@ -79,7 +80,7 @@ export function buildAccountsCsv(participantsCsv, accountsCsv) {
 }
 
 // CLI: node scripts/build-accounts.mjs <참가자.csv> <계정.csv> <출력.csv>
-const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop());
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const [, , participantsPath, accountsPath, outPath] = process.argv;
   if (!participantsPath || !accountsPath || !outPath) {
