@@ -145,6 +145,22 @@ bash /home/ubuntu/.../scripts/ubuntu/install-pm2.sh
 - EC2 배치 후 `chmod 600 /home/ubuntu/discord-bot/.env` (deploy.sh가 자동 처리)
 - 추후 강화 옵션: AWS Secrets Manager 또는 SSM Parameter Store로 전환 (별 이슈)
 
+### 5. 게스트 계정 CSV 운영 (`/내계정` 커맨드)
+
+행사 참가자가 `/내계정`에 본인 이름을 입력하면 배정된 게스트 계정(username/password)을
+본인만 보이는(ephemeral) 메시지로 확인한다. 데이터는 하루 행사용 휘발성 값이다.
+
+- CSV 경로는 env `GUEST_ACCOUNTS_CSV_PATH` (기본값 `data/accounts.csv`).
+- 형식은 `data/accounts.example.csv` 참고 (`name,username,password` 헤더).
+- **행사 전**: 로컬에서 매핑 CSV를 생성 후 EC2 경로에 업로드하고 `chmod 600`.
+  ```bash
+  # 참가자 목록 + GuestManager 계정 export → name,username,password
+  # 남는 계정은 자동으로 임시1..임시K 예비로 채워짐 (K = 계정수 − 참가자수)
+  node scripts/build-accounts.mjs <참가자.csv> <계정.csv> data/accounts.csv
+  ```
+- **행사 후**: `rm <csv>` 으로 즉시 삭제 → 조회가 자동 차단된다(fail-closed).
+- 실데이터 CSV(원본 2개 + 매핑 결과)는 `.gitignore`로 커밋이 차단되어 있다. 절대 커밋하지 말 것.
+
 ## Milestones
 
 - **v0 — 환경 셋팅**: 프로젝트 보드, 이슈 템플릿, CLAUDE.md, CI/CD, TypeScript 초기화 (#3)
