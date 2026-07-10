@@ -6,6 +6,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     DISCORD_GUILD_ID: env['DISCORD_GUILD_ID'],
     LOG_LEVEL: env['LOG_LEVEL'],
     NODE_ENV: env['NODE_ENV'],
+    GUEST_ACCOUNTS_CSV_PATH: env['GUEST_ACCOUNTS_CSV_PATH'],
   });
 
   if (!result.success) {

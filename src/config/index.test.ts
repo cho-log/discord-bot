@@ -57,3 +57,13 @@ test('trims surrounding whitespace from a valid guild id', () => {
   const config = loadConfig({ ...validEnv, DISCORD_GUILD_ID: '   123456789012345678   ' });
   expect(config.DISCORD_GUILD_ID).toBe('123456789012345678');
 });
+
+test('applies default guest accounts csv path', () => {
+  const config = loadConfig(validEnv);
+  expect(config.GUEST_ACCOUNTS_CSV_PATH).toBe('data/accounts.csv');
+});
+
+test('uses provided guest accounts csv path', () => {
+  const config = loadConfig({ ...validEnv, GUEST_ACCOUNTS_CSV_PATH: '/srv/accounts.csv' });
+  expect(config.GUEST_ACCOUNTS_CSV_PATH).toBe('/srv/accounts.csv');
+});

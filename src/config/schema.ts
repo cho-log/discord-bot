@@ -11,6 +11,7 @@ export const configSchema = z.object({
   DISCORD_GUILD_ID: z.string().trim().regex(SNOWFLAKE_PATTERN, 'Invalid Discord Guild ID format'),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
   NODE_ENV: z.enum(['development', 'production']).default('production'),
+  GUEST_ACCOUNTS_CSV_PATH: z.string().trim().min(1).default('data/accounts.csv'),
 });
 
 export type Config = z.infer<typeof configSchema>;
