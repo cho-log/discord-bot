@@ -1,4 +1,11 @@
-import { ApplicationCommandOptionType, type ApplicationCommandDataResolvable } from 'discord.js';
+import { readFile } from 'node:fs/promises';
+import {
+  ApplicationCommandOptionType,
+  type ApplicationCommandDataResolvable,
+  type Interaction,
+  MessageFlags,
+} from 'discord.js';
+import type { EventHandler } from '../discord/event-handler.js';
 import { lookupByName, parseAccountsCsv } from './csv.js';
 
 export const myAccountCommandData: ApplicationCommandDataResolvable = {
@@ -28,4 +35,26 @@ export function buildAccountReply(csvText: string | null, name: string): string 
     case 'found':
       return `**username**: \`${result.account.username}\`\n**password**: \`${result.account.password}\``;
   }
+}
+
+async function readCsv(path: string): Promise<string | null> {
+  try {
+    return await readFile(path, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+export function createMyAccountHandler(csvPath: string): EventHandler<'interactionCreate'> {
+  return {
+    event: 'interactionCreate',
+    handle: async (interaction: Interaction): Promise<void> => {
+      if (!interaction.isChatInputCommand() || interaction.commandName !== '내계정') {
+        return;
+      }
+      const name = interaction.options.getString('이름', true);
+      const content = buildAccountReply(await readCsv(csvPath), name);
+      await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+    },
+  };
 }
