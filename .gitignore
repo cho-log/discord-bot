@@ -4,6 +4,10 @@ coverage/
 .env
 .env.local
 
+# 게스트 계정 CSV (평문 비밀번호 — 커밋 금지, 예시 파일만 허용)
+data/*.csv
+!data/*.example.csv
+
 # Logs
 *.log
 
