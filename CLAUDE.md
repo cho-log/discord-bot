@@ -150,16 +150,23 @@ bash /home/ubuntu/.../scripts/ubuntu/install-pm2.sh
 행사 참가자가 `/내계정`에 본인 이름을 입력하면 배정된 게스트 계정(username/password)을
 본인만 보이는(ephemeral) 메시지로 확인한다. 데이터는 하루 행사용 휘발성 값이다.
 
-- CSV 경로는 env `GUEST_ACCOUNTS_CSV_PATH` (기본값 `data/accounts.csv`).
-- 형식은 `data/accounts.example.csv` 참고 (`name,username,password` 헤더).
-- **행사 전**: 로컬에서 매핑 CSV를 생성 후 EC2 경로에 업로드하고 `chmod 600`.
-  ```bash
-  # 참가자 목록 + GuestManager 계정 export → name,username,password
-  # 남는 계정은 자동으로 임시1..임시K 예비로 채워짐 (K = 계정수 − 참가자수)
-  node scripts/build-accounts.mjs <참가자.csv> <계정.csv> data/accounts.csv
-  ```
-- **행사 후**: `rm <csv>` 으로 즉시 삭제 → 조회가 자동 차단된다(fail-closed).
-- 실데이터 CSV(원본 2개 + 매핑 결과)는 `.gitignore`로 커밋이 차단되어 있다. 절대 커밋하지 말 것.
+CSV는 **`.env`와 동일하게 GitHub Secret으로 배포 파이프라인을 통해 EC2에 전달**된다 (SSH 불필요).
+경로는 env `GUEST_ACCOUNTS_CSV_PATH` (기본값 `data/accounts.csv` → EC2 `/home/ubuntu/discord-bot/data/accounts.csv`).
+
+**행사 전:**
+1. 로컬에서 매핑 CSV 생성 (남는 계정은 자동으로 `임시1..임시K`, K = 계정수 − 참가자수):
+   ```bash
+   node scripts/build-accounts.mjs <참가자.csv> <계정.csv> accounts.csv
+   ```
+2. `accounts.csv` 내용을 저장소 Secret **`GUEST_ACCOUNTS_CSV`** 에 붙여넣기 (형식은 `data/accounts.example.csv` 참고).
+3. `v1.x.x` 태그를 push → 배포 파이프라인이 `data/accounts.csv`로 풀어 EC2에 배치 (`chmod 600` 자동).
+
+**행사 후:** Secret `GUEST_ACCOUNTS_CSV`를 비우고 재배포 → CodeDeploy가 EC2의 CSV를 제거 →
+조회가 자동 차단된다(fail-closed). GuestManager 계정도 `expire_time`으로 당일 만료됨.
+
+- Secret이 비어있으면 CSV가 배치되지 않아 봇은 "준비되지 않았어요"로 응답한다 (평상시 정상 상태).
+- ⚠️ 비밀번호가 GitHub Secret에 저장된다 (암호화 저장, 봇 토큰 `DOTENV`와 동일 신뢰수준).
+- 실데이터 CSV(원본 2개 + 매핑 결과)는 `.gitignore`로 커밋이 차단되어 있다. 로컬 생성물도 절대 커밋 금지.
 
 ## Milestones
 

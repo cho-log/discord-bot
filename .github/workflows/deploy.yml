@@ -27,6 +27,12 @@ jobs:
         with:
           dotenv: ${{ secrets.DOTENV }}
 
+      # 게스트 계정 CSV(선택). 비어있으면 파일 미생성 → 봇은 "준비되지 않았어요" 응답
+      - name: Create accounts CSV from secret
+        uses: ./.github/actions/create-accounts-csv
+        with:
+          csv: ${{ secrets.GUEST_ACCOUNTS_CSV }}
+
       # 빌드는 devDeps(typescript) 필요 → 전체 설치
       - name: Install dependencies
         run: npm ci
@@ -40,12 +46,17 @@ jobs:
         run: npm prune --omit=dev
 
       - name: Create deploy package
-        run: zip -r deployment-package.zip dist/ node_modules/ package.json package-lock.json appspec.yml scripts/ .env
+        run: |
+          FILES="dist/ node_modules/ package.json package-lock.json appspec.yml scripts/ .env"
+          # data/accounts.csv가 있을 때만 번들에 포함. 없으면 CodeDeploy가 이전 배포본을
+          # 제거해 조회가 자동 비활성화된다 (fail-closed).
+          if [ -f data/accounts.csv ]; then FILES="$FILES data/"; fi
+          zip -r deployment-package.zip $FILES
 
-      # 보안: runner의 .env 즉시 삭제 (zip에는 포함됨)
-      - name: Cleanup .env from runner
+      # 보안: runner의 민감 파일 즉시 삭제 (zip에는 포함됨)
+      - name: Cleanup secrets from runner
         if: always()
-        run: rm -f .env
+        run: rm -rf .env data/accounts.csv
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

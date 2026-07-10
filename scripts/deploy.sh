@@ -16,6 +16,12 @@ if [ ! -s "${ENV_FILE}" ]; then
 fi
 chmod 600 "${ENV_FILE}"
 
+# 게스트 계정 CSV(선택)가 배치됐으면 권한 제한
+ACCOUNTS_CSV="${DEPLOY_DIR}/data/accounts.csv"
+if [ -f "${ACCOUNTS_CSV}" ]; then
+    chmod 600 "${ACCOUNTS_CSV}"
+fi
+
 if [ ! -f "${ENTRY}" ]; then
     echo "Error: ${ENTRY} not found" >&2
     exit 1

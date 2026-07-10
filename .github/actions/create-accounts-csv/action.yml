@@ -1,0 +1,31 @@
+name: Create accounts CSV
+description: |
+  GUEST_ACCOUNTS_CSV secret을 checkout 루트의 data/accounts.csv로 복사 (checkout 후 사용).
+  선택적: secret이 비어있으면 파일을 만들지 않는다 (봇은 "준비되지 않았어요" 응답 = fail-closed).
+
+inputs:
+  csv:
+    description: |
+      게스트 계정 매핑 CSV 내용 (헤더 name,username,password).
+      scripts/build-accounts.mjs 산출물을 그대로 붙여넣는다.
+      비어있으면 조회 기능이 비활성화된다.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GUEST_ACCOUNTS_CSV: ${{ inputs.csv }}
+      run: |
+        # 공백 제거 후 비어있으면 파일 생성 스킵 (이벤트 기간 외 정상 상태)
+        STRIPPED=$(printf '%s' "$GUEST_ACCOUNTS_CSV" | tr -d '[:space:]')
+        if [ -z "$STRIPPED" ]; then
+          echo "GUEST_ACCOUNTS_CSV secret이 비어있어 data/accounts.csv를 생성하지 않습니다 (조회 비활성)."
+          exit 0
+        fi
+        mkdir -p data
+        printf '%s\n' "$GUEST_ACCOUNTS_CSV" > data/accounts.csv
+        chmod 600 data/accounts.csv
+        echo "data/accounts.csv 생성 완료 ($(($(wc -l < data/accounts.csv))) 줄)"
