@@ -26,6 +26,7 @@ cholog:
           - self-paced-react
           - javascript-baseball
           - javascript-roulette
+          - javascript-zombie-survival
         disallow-branches:
           - main
           - master
