@@ -24,6 +24,9 @@ cholog:
           - spring-basic-roomescape-playground
           - spring-roomescape-playground
           - self-paced-react
+          - javascript-baseball
+          - javascript-roulette
+          - javascript-zombie-survival
         disallow-branches:
           - main
           - master
